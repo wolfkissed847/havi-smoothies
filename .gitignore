@@ -149,6 +149,7 @@ activemq-data/
 
 # Environments
 .env
+.env.local
 .envrc
 .venv
 env/
@@ -156,6 +157,11 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Secrets and credentials
+service-account.json
+*.key
+*.pem
 
 # Spyder project settings
 .spyderproject
@@ -168,6 +174,8 @@ venv.bak/
 /site
 
 # mypy
+.json
+*.json
 .mypy_cache/
 .dmypy.json
 dmypy.json
