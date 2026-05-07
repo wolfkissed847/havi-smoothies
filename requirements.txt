@@ -1,0 +1,4 @@
+python-dotenv>=1.0
+google-genai>=1.0
+gspread>=6.2.1
+requests>=2.31
