@@ -1,13 +1,11 @@
-# app.py
 import os
 import streamlit as st
-import google.generativeai as genai
 from dotenv import load_dotenv
 from google import genai
 from rag_engine import RAGEngine
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 MODEL = "gemini-2.5-flash"
 
 @st.cache_resource
@@ -45,7 +43,7 @@ if prompt := st.chat_input("ถามอะไรเกี่ยวกับร�
 คำถาม: {prompt}
 """
     response = client.models.generate_content(model=MODEL, contents=full_prompt)
-    answer = response.text
+    answer = response.text if getattr(response, "text", None) else str(response)
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
     with st.chat_message("assistant"):
