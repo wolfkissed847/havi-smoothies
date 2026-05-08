@@ -1,12 +1,13 @@
 # app.py
 import os
 import streamlit as st
+import google.generativeai as genai
 from dotenv import load_dotenv
 from google import genai
 from rag_engine import RAGEngine
 
 load_dotenv()
-client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 MODEL = "gemini-2.5-flash"
 
 @st.cache_resource
@@ -15,7 +16,7 @@ def load_rag():
 
 rag = load_rag()
 
-st.title("🫐 Havi ผู้ช่วย AI ของ Havi Smoothies")
+st.title("🍓 Havi ผู้ช่วย AI ของ Havi Smoothies")
 st.caption("ถามเรื่องเมนู เวลาเปิด หรือข้อมูลร้านได้เลย")
 
 if "messages" not in st.session_state:
