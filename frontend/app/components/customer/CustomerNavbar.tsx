@@ -41,7 +41,7 @@ export function CustomerNavbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 flex-shrink-0">
+          <Link href="/" className="flex items-center gap-2 shrink-0">
             <div className="w-8 h-8 rounded-xl bg-[#00BDFE] flex items-center justify-center">
               <span className="text-white text-lg">🍹</span>
             </div>
@@ -129,7 +129,7 @@ export function CustomerNavbar() {
                 <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-[#0d1f35] rounded-xl shadow-lg border border-[#D8F2FF] dark:border-[#0a2540] overflow-hidden">
                   <div className="px-4 py-3 border-b border-[#E8F5FF] dark:border-[#0a2540]">
                     <p className="text-sm font-medium text-gray-800 dark:text-white">{user?.name}</p>
-                    <p className="text-gray-400" style={{ fontSize: '12px' }}>{user?.email}</p>
+                    <p className="text-gray-400" style={{ fontSize: '12px' }}>{user?.username || user?.name}</p>
                   </div>
                   <Link
                     href="/my-orders"

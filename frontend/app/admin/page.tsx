@@ -11,7 +11,8 @@ import {
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { dashboardStats, hourlyData, topSellers, mockOrders, categoryData, weeklyData } from '../data/mockData';
+import { getAllOrders } from '../lib/db';
+import { CustomerOrder, OrderStatus } from '../lib/types';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -114,17 +115,41 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export function DashboardPage() {
   const { t, isEn } = useLanguage();
-  const recentOrders = mockOrders.slice(0, 5);
   const [chartMode, setChartMode] = useState<'hour' | 'week'>('hour');
+  
+  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const dbOrders = await getAllOrders();
+        setOrders(dbOrders);
+      } catch (e) {
+        console.error('Failed to load dashboard orders:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const today = new Date();
+  const isToday = (d: Date) => d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+  
+  const todayOrders = orders.filter(o => isToday(o.createdAt));
+  const todaySales = todayOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + o.total, 0);
+  const totalOrdersToday = todayOrders.length;
+  const avgPerOrder = totalOrdersToday > 0 ? Math.round(todaySales / totalOrdersToday) : 0;
+  
+  const recentOrders = [...orders].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 5);
+  const liveOrders = orders.filter(o => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready').length;
 
   const chartData = (
     chartMode === 'hour'
-      ? hourlyData.map(d => ({ ...d, label: d.hour }))
-      : weeklyData.map(d => ({ ...d, label: isEn ? d.dayEn : d.day }))
+      ? [] // Will be replaced by real DB hourly data
+      : [] // Will be replaced by real DB weekly data
   ) as any[];
-
-  const totalOrdersToday = hourlyData.reduce((s, h) => s + h.orders, 0);
-  const liveOrders = mockOrders.filter(o => o.status === 'pending' || o.status === 'preparing').length;
 
   return (
     <div className="space-y-6">
@@ -178,26 +203,26 @@ export function DashboardPage() {
           icon={<TrendingUp className="w-5 h-5 text-white" />}
           gradient="linear-gradient(135deg, #00BDFE 0%, #0091cc 100%)"
           label={t('todaySales')}
-          value={dashboardStats.todaySales}
+          value={todaySales}
           prefix="฿"
           sub={isEn ? 'Revenue today' : 'รายได้วันนี้'}
-          growth={dashboardStats.growthRate}
+          growth={5}
           delay={0}
         />
         <StatCard
           icon={<ShoppingBag className="w-5 h-5 text-white" />}
           gradient="linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%)"
           label={t('totalOrders')}
-          value={dashboardStats.totalOrders}
+          value={totalOrdersToday}
           sub={isEn ? 'Orders today' : 'ออเดอร์วันนี้'}
-          growth={dashboardStats.ordersGrowth}
+          growth={2}
           delay={0.08}
         />
         <StatCard
           icon={<ReceiptText className="w-5 h-5 text-white" />}
           gradient="linear-gradient(135deg, #34D399 0%, #059669 100%)"
           label={t('avgPerOrder')}
-          value={dashboardStats.avgPerOrder}
+          value={avgPerOrder}
           prefix="฿"
           sub={isEn ? 'Per order' : 'ต่อออเดอร์'}
           delay={0.16}
@@ -312,7 +337,7 @@ export function DashboardPage() {
             <ResponsiveContainer width="100%" height={180}>
               <PieChart>
                 <Pie
-                  data={categoryData}
+                  data={[]}
                   cx="50%"
                   cy="50%"
                   innerRadius={50}
@@ -321,9 +346,7 @@ export function DashboardPage() {
                   dataKey="value"
                   isAnimationActive={false}
                 >
-                  {categoryData.map((entry, i) => (
-                    <Cell key={`dashboard-category-cell-${entry.color}-${i}`} fill={entry.color} />
-                  ))}
+                  {[]}
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
@@ -333,21 +356,7 @@ export function DashboardPage() {
             </div>
           </div>
           <div className="space-y-2 mt-3">
-            {categoryData.map((c, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + i * 0.1 }}
-                className="flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color }} />
-                  <span className="text-gray-700 dark:text-gray-300 text-sm">{isEn ? c.nameEn : c.name}</span>
-                </div>
-                <span className="text-gray-800 dark:text-white font-semibold text-sm">{c.value}%</span>
-              </motion.div>
-            ))}
+            {[]}
           </div>
         </motion.div>
       </div>
@@ -369,44 +378,7 @@ export function DashboardPage() {
             </div>
           </div>
           <div className="space-y-3">
-            {topSellers.map((item, i) => {
-              const maxCups = topSellers[0].cups;
-              const pct = (item.cups / maxCups) * 100;
-              return (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 + i * 0.08 }}
-                >
-                  <div className="flex justify-between items-center mb-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className="w-5 h-5 rounded-md flex items-center justify-center text-white font-semibold flex-shrink-0"
-                        style={{ background: item.color, fontSize: '10px' }}
-                      >
-                        {i + 1}
-                      </span>
-                      <span className="text-gray-700 dark:text-gray-300 text-xs truncate">
-                        {isEn ? item.nameEn : item.name}
-                      </span>
-                    </div>
-                    <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2 tabular-nums" style={{ fontSize: '11px' }}>
-                      {item.cups} {t('cups')}
-                    </span>
-                  </div>
-                  <div className="h-2 rounded-full bg-[#F0FBFF] dark:bg-[#0a2540] overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${pct}%` }}
-                      transition={{ delay: 0.6 + i * 0.08, duration: 0.9, ease: 'easeOut' }}
-                      className="h-full rounded-full"
-                      style={{ background: `linear-gradient(90deg, ${item.color} 0%, ${item.color}cc 100%)` }}
-                    />
-                  </div>
-                </motion.div>
-              );
-            })}
+            {/* Fallback top sellers removed */}
           </div>
         </motion.div>
 
@@ -451,15 +423,15 @@ export function DashboardPage() {
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
                         <Clock className="w-3.5 h-3.5" />
-                        {order.time}
+                        {order.createdAt.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false })}
                       </div>
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#84E4F7] to-[#00BDFE] flex items-center justify-center text-white font-semibold" style={{ fontSize: '11px' }}>
-                          {order.customerName.charAt(0)}
+                          {((order as any).customerName || 'C').charAt(0)}
                         </div>
-                        <span className="text-sm text-gray-800 dark:text-white">{order.customerName}</span>
+                        <span className="text-sm text-gray-800 dark:text-white">{(order as any).customerName || 'ลูกค้า'}</span>
                       </div>
                     </td>
                     <td className="px-5 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-[180px]">

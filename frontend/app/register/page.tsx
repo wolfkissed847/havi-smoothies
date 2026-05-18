@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export function RegisterPage() {
   const { t } = useLanguage();
+  const { register } = useAuth();
   const router = useRouter();
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
   const [showPass, setShowPass] = useState(false);
@@ -21,21 +23,34 @@ export function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
     if (form.password !== form.confirm) {
       setError('รหัสผ่านไม่ตรงกัน / Passwords do not match');
       return;
     }
+    
     setLoading(true);
-    // Simulate API call
-    await new Promise(r => setTimeout(r, 1200));
+
+    // Auto-append @gmail.com if they typed a username without @
+    let signupEmail = form.email.trim();
+    if (!signupEmail.includes('@')) {
+      signupEmail = `${signupEmail}@gmail.com`;
+    }
+
+    const res = await register(form.name, signupEmail, form.phone, form.password);
     setLoading(false);
-    setSubmitted(true);
-    setTimeout(() => router.push('/login'), 2000);
+
+    if (res.success) {
+      setSubmitted(true);
+      setTimeout(() => router.push('/login'), 2000);
+    } else {
+      setError(res.error || 'สมัครสมาชิกไม่สำเร็จ / Registration failed');
+    }
   };
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#D8F2FF] via-white to-[#F0FBFF] dark:from-[#030d1a] dark:via-[#060f1e] dark:to-[#030d1a] flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-[#D8F2FF] via-white to-[#F0FBFF] dark:from-[#030d1a] dark:via-[#060f1e] dark:to-[#030d1a] flex items-center justify-center">
         <div className="text-center">
           <CheckCircle className="w-16 h-16 text-[#00BDFE] mx-auto mb-4" />
           <h2 className="text-gray-800 dark:text-white mb-2">สมัครสมาชิกสำเร็จ!</h2>
@@ -46,7 +61,7 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#D8F2FF] via-white to-[#F0FBFF] dark:from-[#030d1a] dark:via-[#060f1e] dark:to-[#030d1a] flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-linear-to-br from-[#D8F2FF] via-white to-[#F0FBFF] dark:from-[#030d1a] dark:via-[#060f1e] dark:to-[#030d1a] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         <Link href="/login" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-[#00BDFE] mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4" />
@@ -76,13 +91,13 @@ export function RegisterPage() {
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1.5">{t('emailLabel')}</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1.5">{t('userLabel')}</label>
               <input
                 name="email"
-                type="email"
+                type="text"
                 value={form.email}
                 onChange={handleChange}
-                placeholder="email@example.com"
+                placeholder="user"
                 className="w-full px-4 py-2.5 rounded-xl border border-[#D8F2FF] dark:border-[#0a2540] bg-[#F8FBFF] dark:bg-[#030d1a] text-gray-800 dark:text-white outline-none focus:border-[#00BDFE] transition-colors text-sm"
                 required
               />

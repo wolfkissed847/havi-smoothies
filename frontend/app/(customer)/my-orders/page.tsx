@@ -10,7 +10,7 @@ import {
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrderHistory } from '../../contexts/OrderHistoryContext';
-import { CustomerOrder, OrderStatus } from '../../data/mockData';
+import { CustomerOrder, OrderStatus } from '../../lib/types';
 import { RatingModal } from '../../components/customer/RatingModal';
 
 // ─── helpers ───────────────────────────────────────────────────────────────

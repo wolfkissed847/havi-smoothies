@@ -75,7 +75,7 @@ export const translations = {
     trackOrder: 'ติดตามออเดอร์',
     
     // Auth
-    emailLabel: 'อีเมล',
+    userLabel: 'ชื่อผู้ใช้',
     passwordLabel: 'รหัสผ่าน',
     confirmPassword: 'ยืนยันรหัสผ่าน',
     fullName: 'ชื่อ-นามสกุล',
@@ -285,7 +285,7 @@ export const translations = {
     trackOrder: 'Track Order',
     
     // Auth
-    emailLabel: 'Email',
+    userLabel: 'User',
     passwordLabel: 'Password',
     confirmPassword: 'Confirm Password',
     fullName: 'Full Name',

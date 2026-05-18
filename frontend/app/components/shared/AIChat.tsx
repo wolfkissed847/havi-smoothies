@@ -5,7 +5,18 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useCart } from '../../contexts/CartContext';
-import { aiResponses, menuItems, MenuItem, DrinkType, SweetnessLevel, ItemOptions } from '../../data/mockData';
+import { MenuItem, DrinkType, SweetnessLevel, ItemOptions } from '../../lib/types';
+import { getMenuItems } from '../../lib/db';
+
+const aiResponses: Record<string, { th: string; en: string }> = {
+  greeting: { th: 'สวัสดีค่ะ! ยินดีให้บริการ มีอะไรให้ช่วยไหมคะ? 😊', en: 'Hello! Happy to help. What can I do for you? 😊' },
+  menu: { th: 'เรามีน้ำผลไม้สดและน้ำผักหลากหลายค่ะ ทั้งแบบเย็นและแบบปั่น ลองดูเมนูทั้งหมดได้เลยค่ะ 🍹', en: 'We have a variety of fresh fruit and vegetable juices, both cold and blended. Check our full menu! 🍹' },
+  price: { th: 'ราคาของเราเริ่มต้นที่ 35 บาท สูงสุด 50 บาท ประหยัดดีมากค่ะ! 💰', en: 'Our prices start from 35 THB up to 50 THB. Very affordable! 💰' },
+  delivery: { th: 'เราจัดส่งฟรีสำหรับออเดอร์แรกของวัน ระยะเวลาจัดส่งประมาณ 20-30 นาทีค่ะ 🛵', en: 'Free delivery on your first order of the day! Estimated delivery time is 20-30 minutes. 🛵' },
+  recommend: { th: 'เมนูแนะนำของวันนี้คือ ส้ม 🍊 และสตรอว์เบอร์รี่ 🍓 อร่อยมากค่ะ!', en: "Today's recommendations are Orange 🍊 and Strawberry 🍓. So delicious!" },
+  hours: { th: 'ร้านเปิดทุกวัน 08:00 - 20:00 น. ค่ะ ☀️', en: "We're open every day from 8:00 AM to 8:00 PM ☀️" },
+  default: { th: 'ขอบคุณสำหรับคำถามค่ะ! หากต้องการข้อมูลเพิ่มเติม สามารถถามได้เลยนะคะ หรือดูเมนูทั้งหมดได้ที่หน้าเมนูค่ะ 🍹', en: 'Thanks for your question! Feel free to ask anything else or browse our full menu. 🍹' },
+};
 
 /* ─── Types ─────────────────────────────────────────── */
 interface Message {
@@ -46,9 +57,9 @@ function getNow() {
   return new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 }
 
-function findMenuItems(msg: string): MenuItem[] {
+function findMenuItems(msg: string, availableItems: MenuItem[]): MenuItem[] {
   const lower = msg.toLowerCase();
-  return menuItems.filter(
+  return availableItems.filter(
     item =>
       item.isAvailable &&
       (lower.includes(item.name.toLowerCase()) || lower.includes(item.nameEn.toLowerCase())),
@@ -66,12 +77,13 @@ export function AIChat() {
   const { addItem, count } = useCart();
   const isTh = language === 'th';
 
+  const [availableMenuItems, setAvailableMenuItems] = useState<MenuItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: isTh ? aiResponses.greeting.th : aiResponses.greeting.en,
+      text: isTh ? 'สวัสดีค่ะ! ยินดีให้บริการ มีอะไรให้ช่วยไหมคะ? 😊' : 'Hello! Happy to help. What can I do for you? 😊',
       isBot: true,
       time: getNow(),
     },
@@ -86,6 +98,16 @@ export function AIChat() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    async function fetchMenu() {
+      try {
+        const items = await getMenuItems();
+        setAvailableMenuItems(items || []);
+      } catch (err) {}
+    }
+    fetchMenu();
+  }, []);
+
+  useEffect(() => {
     if (isOpen) {
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 60);
     }
@@ -98,7 +120,7 @@ export function AIChat() {
   /* ─── NLP ─── */
   const getResponse = (msg: string): { text: string; foundItems?: MenuItem[] } => {
     const lower = msg.toLowerCase();
-    const found = findMenuItems(msg);
+    const found = findMenuItems(msg, availableMenuItems);
 
     if (found.length > 0 && isOrderIntent(msg)) {
       return {
@@ -118,11 +140,11 @@ export function AIChat() {
       };
     }
     if (lower.includes('เมนู') || lower.includes('menu') || lower.includes('มีอะไร') || lower.includes('what'))
-      return { text: isTh ? aiResponses.menu.th : aiResponses.menu.en };
+      return { text: isTh ? 'เรามีน้ำผลไม้สดและน้ำผักหลากหลายค่ะ ทั้งแบบเย็นและแบบปั่น ลองดูเมนูทั้งหมดได้เลยค่ะ 🍹' : 'We have a variety of fresh fruit and vegetable juices, both cold and blended. Check our full menu! 🍹' };
     if (lower.includes('ราคา') || lower.includes('price') || lower.includes('cost') || lower.includes('บาท'))
-      return { text: isTh ? aiResponses.price.th : aiResponses.price.en };
+      return { text: isTh ? 'ราคาของเราเริ่มต้นที่ 35 บาท สูงสุด 50 บาท ประหยัดดีมากค่ะ! 💰' : 'Our prices start from 35 THB up to 50 THB. Very affordable! 💰' };
     if (lower.includes('ส่ง') || lower.includes('จัดส่ง') || lower.includes('deliver'))
-      return { text: isTh ? aiResponses.delivery.th : aiResponses.delivery.en };
+      return { text: isTh ? 'เราจัดส่งฟรีสำหรับออเดอร์แรกของวัน ระยะเวลาจัดส่งประมาณ 20-30 นาทีค่ะ 🛵' : 'Free delivery on your first order of the day! Estimated delivery time is 20-30 minutes. 🛵' };
     if (lower.includes('แนะนำ') || lower.includes('recommend') || lower.includes('อร่อย') || lower.includes('best'))
       return { text: isTh ? aiResponses.recommend.th : aiResponses.recommend.en };
     if (lower.includes('เปิด') || lower.includes('ปิด') || lower.includes('open') || lower.includes('hour'))

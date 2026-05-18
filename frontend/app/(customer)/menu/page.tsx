@@ -1,11 +1,12 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useCart } from '../../contexts/CartContext';
-import { menuItems, MenuItem, MenuCategory } from '../../data/mockData';
+import { MenuItem, MenuCategory } from '../../lib/types';
 import { OrderOptionsModal } from '../../components/customer/OrderOptionsModal';
+import { getMenuItems } from '../../lib/db';
 
 type Category = 'all' | MenuCategory;
 
@@ -84,6 +85,27 @@ export function MenuPageContent() {
   const [activeCategory, setActiveCategory] = useState<Category>(initialCat);
   const [search, setSearch] = useState('');
   const [orderingItem, setOrderingItem] = useState<MenuItem | null>(null);
+  
+  const [dbMenuItems, setDbMenuItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load menu items from Supabase
+  useEffect(() => {
+    async function loadMenu() {
+      try {
+        const items = await getMenuItems();
+        setDbMenuItems(items || []);
+      } catch (error) {
+        console.error("Error loading menu:", error);
+        setDbMenuItems([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadMenu();
+  }, []);
+
+  const currentMenuItems = dbMenuItems;
 
   const handleCategoryChange = (cat: Category) => {
     setActiveCategory(cat);
@@ -95,7 +117,7 @@ export function MenuPageContent() {
   };
 
   const filtered = useMemo(() => {
-    return menuItems.filter(item => {
+    return currentMenuItems.filter(item => {
       const matchCat = activeCategory === 'all' || item.category === activeCategory;
       const searchLower = search.toLowerCase();
       const matchSearch = search === '' ||
@@ -104,14 +126,14 @@ export function MenuPageContent() {
         item.description.includes(search);
       return matchCat && matchSearch;
     });
-  }, [activeCategory, search]);
+  }, [currentMenuItems, activeCategory, search]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-gray-800 dark:text-white mb-1">{t('menuTitle')}</h1>
-        <p className="text-gray-400 text-sm">{isEn ? `${menuItems.length} items available` : `${menuItems.length} รายการ`}</p>
+        <p className="text-gray-400 text-sm">{isEn ? `${currentMenuItems.length} items available` : `${currentMenuItems.length} รายการ`}</p>
       </div>
 
       {/* Search */}

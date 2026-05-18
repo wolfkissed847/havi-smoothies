@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState } from 'react';
-import { MenuItem, ItemOptions } from '../data/mockData';
+import { MenuItem, ItemOptions } from '../lib/types';
 
 export interface OrderItem {
   cartId: string;

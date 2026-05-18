@@ -2,7 +2,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, X, Eye, EyeOff, ChevronDown } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { menuItems as initialItems, MenuItem, MenuCategory } from '../../data/mockData';
+import { getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem } from '../../lib/db';
+import { MenuItem, MenuCategory } from '../../lib/types';
 
 type Category = MenuCategory;
 type BadgeType = 'none' | 'featured' | 'new' | 'recommended';
@@ -119,14 +120,32 @@ function BadgeDropdown({ value, onChange, isEn }: {
 
 export function MenuManagementPage() {
   const { isEn } = useLanguage();
-  const [items, setItems] = useState<MenuItem[]>(initialItems);
-  const [soldCounts, setSoldCounts] = useState<Record<number, number>>(SOLD_MOCK);
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [soldCounts, setSoldCounts] = useState<Record<string | number, number>>(SOLD_MOCK);
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState<Category | 'all'>('all');
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [form, setForm] = useState<FormData>(DEFAULT_FORM);
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | string | null>(null);
+
+  // Fetch menu items from Supabase on mount
+  useEffect(() => {
+    async function loadMenu() {
+      try {
+        const dbItems = await getMenuItems();
+        if (dbItems && dbItems.length > 0) {
+          setItems(dbItems);
+        } else {
+          setItems([]);
+        }
+      } catch (err) {
+        console.error('Failed to load menu items:', err);
+        setItems([]);
+      }
+    }
+    loadMenu();
+  }, []);
 
   const filtered = items.filter(item => {
     const matchCat = catFilter === 'all' || item.category === catFilter;
@@ -168,38 +187,91 @@ export function MenuManagementPage() {
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name || !form.price) return;
     const isNew = form.badge === 'new';
     const isFeatured = form.badge === 'featured' || form.badge === 'recommended';
+    
     if (editingItem) {
-      setItems(prev => prev.map(i => i.id === editingItem.id
-        ? { ...i, ...form, isNew, isFeatured }
-        : i
-      ));
+      // 1. Update in Supabase
+      const updated = await updateMenuItem(editingItem.id, {
+        name: form.name,
+        nameEn: form.nameEn,
+        category: form.category,
+        price: form.price,
+        description: form.description,
+        descriptionEn: form.descriptionEn,
+        isAvailable: form.isAvailable,
+        emoji: form.emoji,
+        isNew,
+        isFeatured,
+      });
+
+      // 2. Update state locally
+      if (updated) {
+        setItems(prev => prev.map(i => i.id === editingItem.id ? updated : i));
+      } else {
+        setItems(prev => prev.map(i => i.id === editingItem.id
+          ? { ...i, ...form, isNew, isFeatured }
+          : i
+        ));
+      }
     } else {
-      const newId = Math.max(...items.map(i => i.id)) + 1;
-      const newItem: MenuItem = {
-        id: newId,
-        ...form,
+      // 1. Create in Supabase
+      const created = await createMenuItem({
+        name: form.name,
+        nameEn: form.nameEn,
+        category: form.category,
+        price: form.price,
+        description: form.description,
+        descriptionEn: form.descriptionEn,
+        isAvailable: form.isAvailable,
+        emoji: form.emoji,
         isNew,
         isFeatured,
         image: '',
         bgColor: form.category === 'fruit' ? '#FFF8E1' : '#F0FFF4',
-      };
-      setItems(prev => [...prev, newItem]);
-      setSoldCounts(prev => ({ ...prev, [newId]: 0 }));
+      });
+
+      // 2. Update state locally
+      if (created) {
+        setItems(prev => [...prev, created]);
+        setSoldCounts(prev => ({ ...prev, [created.id]: 0 }));
+      } else {
+        const newId = Math.random().toString();
+        const newItem: MenuItem = {
+          id: newId as any,
+          ...form,
+          isNew,
+          isFeatured,
+          image: '',
+          bgColor: form.category === 'fruit' ? '#FFF8E1' : '#F0FFF4',
+        };
+        setItems(prev => [...prev, newItem]);
+        setSoldCounts(prev => ({ ...prev, [newId]: 0 }));
+      }
     }
     setShowModal(false);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number | string) => {
+    // 1. Delete from Supabase
+    await deleteMenuItem(id);
+    
+    // 2. Update state locally
     setItems(prev => prev.filter(i => i.id !== id));
     setDeleteConfirm(null);
   };
 
-  const toggleAvailability = (id: number) => {
+  const toggleAvailability = async (id: number | string) => {
+    const itemToToggle = items.find(i => i.id === id);
+    if (!itemToToggle) return;
+
+    // Toggle local state immediately for snappy UX response
     setItems(prev => prev.map(i => i.id === id ? { ...i, isAvailable: !i.isAvailable } : i));
+
+    // Update in Supabase
+    await updateMenuItem(id, { isAvailable: !itemToToggle.isAvailable });
   };
 
   const inputCls = "w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-[#0a2540] bg-gray-50 dark:bg-[#030d1a] text-gray-800 dark:text-white text-sm outline-none focus:border-[#00BDFE] focus:bg-white dark:focus:bg-[#060f1e] transition-colors";
