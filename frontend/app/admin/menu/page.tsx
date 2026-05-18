@@ -2,8 +2,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, X, Eye, EyeOff, ChevronDown } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { menuItems as initialItems, MenuItem, MenuCategory } from '../../data/mockData';
 import { getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem } from '../../lib/db';
+import { MenuItem, MenuCategory } from '../../lib/types';
 
 type Category = MenuCategory;
 type BadgeType = 'none' | 'featured' | 'new' | 'recommended';
@@ -120,7 +120,7 @@ function BadgeDropdown({ value, onChange, isEn }: {
 
 export function MenuManagementPage() {
   const { isEn } = useLanguage();
-  const [items, setItems] = useState<MenuItem[]>(initialItems);
+  const [items, setItems] = useState<MenuItem[]>([]);
   const [soldCounts, setSoldCounts] = useState<Record<string | number, number>>(SOLD_MOCK);
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState<Category | 'all'>('all');
@@ -137,11 +137,11 @@ export function MenuManagementPage() {
         if (dbItems && dbItems.length > 0) {
           setItems(dbItems);
         } else {
-          setItems(initialItems);
+          setItems([]);
         }
       } catch (err) {
-        console.error('Failed to load menu items in admin:', err);
-        setItems(initialItems);
+        console.error('Failed to load menu items:', err);
+        setItems([]);
       }
     }
     loadMenu();

@@ -20,29 +20,34 @@ export function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const success = await login(email, password);
+
+    const loginEmail = email.trim();
+
+    const success = await login(loginEmail, password);
     setLoading(false);
     if (success) {
       router.push('/');
     } else {
-      setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง / Invalid email or password');
+      setError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง / Invalid user or password');
     }
   };
 
   const demoLogin = async (type: 'admin' | 'user') => {
     setLoading(true);
     if (type === 'admin') {
-      await login('admin@havi-smoothies.com', 'admin123');
-      router.push('/admin');
+      if (await login('admin', 'admin')) {
+        router.push('/admin');
+      }
     } else {
-      await login('user@havi-smoothies.com', 'user123');
-      router.push('/');
+      if (await login('user', 'user')) {
+        router.push('/');
+      }
     }
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#D8F2FF] via-white to-[#F0FBFF] dark:from-[#030d1a] dark:via-[#060f1e] dark:to-[#030d1a] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-linear-to-br from-[#D8F2FF] via-white to-[#F0FBFF] dark:from-[#030d1a] dark:via-[#060f1e] dark:to-[#030d1a] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Back */}
         <Link href="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-[#00BDFE] mb-6 transition-colors">
@@ -60,21 +65,14 @@ export function LoginPage() {
             <p className="text-gray-400 text-sm mt-1">{t('loginSubtitle')}</p>
           </div>
 
-          {/* Demo Credentials Info */}
-          <div className="mb-6 p-3 rounded-xl bg-[#D8F2FF] dark:bg-[#00BDFE]/10 border border-[#84E4F7] dark:border-[#00BDFE]/20">
-            <p className="text-[#00BDFE] text-xs font-medium mb-1">Demo Accounts:</p>
-            <p className="text-gray-600 dark:text-gray-400" style={{ fontSize: '11px' }}>Admin: admin@havi-smoothies.com / admin123</p>
-            <p className="text-gray-600 dark:text-gray-400" style={{ fontSize: '11px' }}>User: user@havi-smoothies.com / user123</p>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1.5">{t('emailLabel')}</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1.5">{t('userLabel')}</label>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="email@example.com"
+                placeholder="email หรือ user"
                 className="w-full px-4 py-2.5 rounded-xl border border-[#D8F2FF] dark:border-[#0a2540] bg-[#F8FBFF] dark:bg-[#030d1a] text-gray-800 dark:text-white outline-none focus:border-[#00BDFE] transition-colors text-sm"
                 required
               />

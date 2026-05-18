@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { CustomerOrder, CustomerOrderItem, mockCustomerOrders } from '../data/mockData';
+import { CustomerOrder, CustomerOrderItem } from '../lib/types';
 import { OrderItem } from './CartContext';
 import { useAuth } from './AuthContext';
 import {
@@ -31,7 +31,7 @@ const OrderHistoryContext = createContext<OrderHistoryContextType>({
 
 export function OrderHistoryProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [myOrders, setMyOrders] = useState<CustomerOrder[]>(mockCustomerOrders);
+  const [myOrders, setMyOrders] = useState<CustomerOrder[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Load orders from Supabase on mount / login
@@ -41,24 +41,20 @@ export function OrderHistoryProvider({ children }: { children: React.ReactNode }
         setLoading(true);
         try {
           const dbOrders = await getCustomerOrders(user.id);
-          if (dbOrders && dbOrders.length > 0) {
-            setMyOrders(dbOrders);
-          } else {
-            // Keep fallback demo orders so UI is not empty
-            setMyOrders(mockCustomerOrders);
-          }
+          setMyOrders(dbOrders || []);
         } catch (err) {
           console.error('Failed to load user orders from database:', err);
-          setMyOrders(mockCustomerOrders);
+          setMyOrders([]);
         } finally {
           setLoading(false);
         }
       } else {
-        setMyOrders(mockCustomerOrders);
+        setMyOrders([]);
       }
     }
     loadOrders();
   }, [user]);
+
 
   const addOrder = async (items: OrderItem[], address: string, notes: string): Promise<string> => {
     const fallbackNumber = `HS-${Date.now().toString().slice(-6)}`;

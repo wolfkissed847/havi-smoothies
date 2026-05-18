@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Minus, Plus, ShoppingCart } from 'lucide-react';
-import { MenuItem, ItemOptions, DrinkType, SweetnessLevel, CupType } from '../../data/mockData';
+import { MenuItem, ItemOptions, DrinkType, SweetnessLevel, CupType } from '../../lib/types';
 import { useCart } from '../../contexts/CartContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 

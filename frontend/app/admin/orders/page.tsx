@@ -1,14 +1,28 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search, RefreshCw, Printer, ChevronDown, ChevronUp,
   CheckCircle2, Clock4, Loader2, XCircle, Filter,
   MapPin, MessageSquare, ChevronRight,
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { mockOrders, Order, OrderStatus } from '../../data/mockData';
+import { OrderStatus } from '../../lib/types';
+import { getAllOrders, updateOrderStatus } from '../../lib/db';
 
-const DELIVERY_FEE = 20;
+// Admin Order shape (flattened from CustomerOrder for this page)
+interface AdminOrder {
+  id: string;
+  customerName: string;
+  items: { name: string; nameEn: string; quantity: number; price: number }[];
+  total: number;
+  status: OrderStatus;
+  time: string;
+  address: string;
+  notes: string;
+  createdAt: Date;
+}
+
+const DELIVERY_FEE = 0;
 
 // emoji mapping by item name keyword
 const ITEM_EMOJI: Record<string, string> = {
@@ -111,41 +125,17 @@ const TABS: Tab[] = [
   { key: 'cancelled', labelTh: 'ยกเลิก', labelEn: 'Cancelled' },
 ];
 
-// Stat cards
 const STAT_CARDS = [
-  {
-    key: 'all',
-    labelTh: 'ออเดอร์ทั้งหมด', labelEn: 'Total Orders',
-    bg: 'bg-[#F0FDF4] dark:bg-[#0a2540]',
-    border: 'border-green-100 dark:border-[#0a2540]',
-    textColor: 'text-[#1a3c2e] dark:text-green-300',
-  },
-  {
-    key: 'pending',
-    labelTh: 'รอดำเนินการ', labelEn: 'Pending',
-    bg: 'bg-[#FFFBE8] dark:bg-amber-900/10',
-    border: 'border-amber-100 dark:border-amber-900/30',
-    textColor: 'text-amber-600 dark:text-amber-400',
-  },
-  {
-    key: 'preparing',
-    labelTh: 'กำลังทำ', labelEn: 'Preparing',
-    bg: 'bg-[#EFF8FF] dark:bg-blue-900/10',
-    border: 'border-blue-100 dark:border-blue-900/30',
-    textColor: 'text-blue-600 dark:text-blue-400',
-  },
-  {
-    key: 'delivered',
-    labelTh: 'สำเร็จวันนี้', labelEn: "Today's Done",
-    bg: 'bg-[#F0FFF4] dark:bg-green-900/10',
-    border: 'border-green-200 dark:border-green-900/30',
-    textColor: 'text-green-700 dark:text-green-400',
-  },
+  { key: 'all', labelTh: 'ออเดอร์ทั้งหมด', labelEn: 'Total Orders', bg: 'bg-[#F0FDF4] dark:bg-[#0a2540]', border: 'border-green-100 dark:border-[#0a2540]', textColor: 'text-[#1a3c2e] dark:text-green-300' },
+  { key: 'pending', labelTh: 'รอดำเนินการ', labelEn: 'Pending', bg: 'bg-[#FFFBE8] dark:bg-amber-900/10', border: 'border-amber-100 dark:border-amber-900/30', textColor: 'text-amber-600 dark:text-amber-400' },
+  { key: 'preparing', labelTh: 'กำลังทำ', labelEn: 'Preparing', bg: 'bg-[#EFF8FF] dark:bg-blue-900/10', border: 'border-blue-100 dark:border-blue-900/30', textColor: 'text-blue-600 dark:text-blue-400' },
+  { key: 'delivered', labelTh: 'สำเร็จวันนี้', labelEn: "Today's Done", bg: 'bg-[#F0FFF4] dark:bg-green-900/10', border: 'border-green-200 dark:border-green-900/30', textColor: 'text-green-700 dark:text-green-400' },
 ] as const;
 
 export function OrdersPage() {
   const { isEn } = useLanguage();
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -154,19 +144,46 @@ export function OrdersPage() {
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   });
 
-  const handleRefresh = () => {
-    const d = new Date();
-    setLastRefresh(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
-  };
+  const loadOrders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const dbOrders = await getAllOrders();
+      const mapped: AdminOrder[] = dbOrders.map(o => ({
+        id: o.id,
+        customerName: (o as any).customerName || 'ลูกค้า',
+        items: o.items.map(i => ({ name: i.name, nameEn: i.nameEn, quantity: i.quantity, price: i.price })),
+        total: o.total,
+        status: o.status,
+        time: o.createdAt.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        address: o.address,
+        notes: o.notes,
+        createdAt: o.createdAt,
+      }));
+      setOrders(mapped);
+    } catch (err) {
+      console.error('Failed to load admin orders:', err);
+    } finally {
+      setLoading(false);
+      const d = new Date();
+      setLastRefresh(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+    }
+  }, []);
 
-  const updateStatus = (id: string, newStatus: OrderStatus) => {
+  useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  const handleRefresh = () => { loadOrders(); };
+
+  const handleUpdateStatus = async (id: string, newStatus: OrderStatus) => {
+    await updateOrderStatus(id, newStatus);
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
   };
 
-  const cancelOrder = (id: string) => {
+  const handleCancelOrder = async (id: string) => {
+    await updateOrderStatus(id, 'cancelled', 'Admin cancelled');
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' } : o));
     setExpandedId(null);
   };
+
 
   const filtered = orders.filter(o => {
     const matchTab = activeTab === 'all' || o.status === activeTab;
@@ -286,7 +303,12 @@ export function OrdersPage() {
       </div>
 
       {/* ── Table ── */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-[#00BDFE] mx-auto mb-3" />
+          <p className="text-gray-400 text-sm">{isEn ? 'Loading orders...' : 'กำลังโหลดออเดอร์...'}</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="text-center py-20">
           <div className="text-5xl mb-4">📋</div>
           <p className="text-gray-400">{isEn ? 'No orders found' : 'ไม่พบออเดอร์'}</p>
@@ -423,7 +445,7 @@ export function OrdersPage() {
                         <div className="flex gap-2 pt-2">
                           {nextStatus && nextLabel && (
                             <button
-                              onClick={e => { e.stopPropagation(); updateStatus(order.id, nextStatus); setExpandedId(null); }}
+                              onClick={e => { e.stopPropagation(); handleUpdateStatus(order.id, nextStatus); setExpandedId(null); }}
                               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1a3c2e] text-white text-sm font-medium hover:bg-[#244d3b] transition-colors"
                             >
                               <ChevronRight className="w-4 h-4" />
@@ -432,7 +454,7 @@ export function OrdersPage() {
                           )}
                           {order.status !== 'cancelled' && order.status !== 'delivered' && (
                             <button
-                              onClick={e => { e.stopPropagation(); cancelOrder(order.id); }}
+                              onClick={e => { e.stopPropagation(); handleCancelOrder(order.id); }}
                               className="px-5 py-2.5 rounded-xl border border-red-200 dark:border-red-800 text-red-500 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                             >
                               {isEn ? 'Cancel Order' : 'ยกเลิกออเดอร์'}

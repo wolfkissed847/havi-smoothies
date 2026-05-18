@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useCart } from '../../contexts/CartContext';
-import { menuItems, MenuItem, MenuCategory } from '../../data/mockData';
+import { MenuItem, MenuCategory } from '../../lib/types';
 import { OrderOptionsModal } from '../../components/customer/OrderOptionsModal';
 import { getMenuItems } from '../../lib/db';
 
@@ -94,14 +94,10 @@ export function MenuPageContent() {
     async function loadMenu() {
       try {
         const items = await getMenuItems();
-        if (items && items.length > 0) {
-          setDbMenuItems(items);
-        } else {
-          setDbMenuItems(menuItems);
-        }
-      } catch (err) {
-        console.error('Failed to load menu items:', err);
-        setDbMenuItems(menuItems);
+        setDbMenuItems(items || []);
+      } catch (error) {
+        console.error("Error loading menu:", error);
+        setDbMenuItems([]);
       } finally {
         setLoading(false);
       }
@@ -109,7 +105,7 @@ export function MenuPageContent() {
     loadMenu();
   }, []);
 
-  const currentMenuItems = dbMenuItems.length > 0 ? dbMenuItems : menuItems;
+  const currentMenuItems = dbMenuItems;
 
   const handleCategoryChange = (cat: Category) => {
     setActiveCategory(cat);

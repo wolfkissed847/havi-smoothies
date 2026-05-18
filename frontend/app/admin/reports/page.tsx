@@ -6,7 +6,8 @@ import {
 } from 'recharts';
 import { TrendingUp, ShoppingBag, ReceiptText, Download } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { weeklyData, categoryData, dashboardStats, mockOrders } from '../../data/mockData';
+import { getAllOrders } from '../../lib/db';
+import { CustomerOrder } from '../../lib/types';
 
 type Period = 'today' | 'week' | 'month';
 
@@ -46,21 +47,42 @@ export function ReportsPage() {
     { key: 'month', labelTh: 'เดือนนี้', labelEn: 'This Month' },
   ];
 
-  const chartData = weeklyData.map(d => ({
-    name: isEn ? d.dayEn : d.day,
-    sales: d.sales,
-    orders: d.orders,
-  }));
+  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const pieData = categoryData.map(d => ({
-    name: isEn ? d.nameEn : d.name,
-    value: d.value,
-    color: d.color,
-  }));
+  React.useEffect(() => {
+    async function fetchOrders() {
+      try {
+        const data = await getAllOrders();
+        setOrders(data);
+      } catch (e) {
+        console.error("Failed to load orders for reports:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchOrders();
+  }, []);
 
+  const chartData: any[] = [];
+  const pieData: any[] = [];
+  
   const multiplier = period === 'today' ? 1 : period === 'week' ? 7 : 30;
-  const totalRevenue = dashboardStats.todaySales * multiplier;
-  const totalOrders = dashboardStats.totalOrders * multiplier;
+  // Calculate basic stats for this exact period based on real orders
+  const validOrders = orders.filter(o => o.status !== 'cancelled');
+  const now = new Date();
+  
+  const filteredOrders = validOrders.filter(o => {
+    const diffTime = Math.abs(now.getTime() - o.createdAt.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (period === 'today') return diffDays <= 1;
+    if (period === 'week') return diffDays <= 7;
+    return diffDays <= 30;
+  });
+
+  const totalRevenue = filteredOrders.reduce((acc, o) => acc + o.total, 0);
+  const totalOrders = filteredOrders.length;
+  const avgPerOrder = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
 
   return (
     <div className="space-y-6">
@@ -109,7 +131,7 @@ export function ReportsPage() {
             icon: <ReceiptText className="w-5 h-5 text-green-500" />,
             bg: 'bg-green-50 dark:bg-green-900/20',
             label: t('avgPerOrder'),
-            value: `฿${dashboardStats.avgPerOrder}`,
+            value: `฿${avgPerOrder.toLocaleString()}`,
           },
         ].map((card, i) => (
           <div key={i} className="bg-white dark:bg-[#060f1e] rounded-2xl border border-[#E8F5FF] dark:border-[#0a2540] p-4">
@@ -208,12 +230,16 @@ export function ReportsPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F8FBFF] dark:divide-[#0a2540]">
-              {mockOrders.map(order => (
+            <tbody className="divide-y divide-[#F0FBFF] dark:divide-[#0a2540]">
+              {filteredOrders.slice(0, 8).map((order) => (
                 <tr key={order.id} className="hover:bg-[#F8FBFF] dark:hover:bg-[#0a1828] transition-colors">
-                  <td className="px-5 py-3 text-xs text-gray-400 font-mono">{order.id}</td>
-                  <td className="px-5 py-3 text-sm text-gray-600 dark:text-gray-400">{order.time}</td>
-                  <td className="px-5 py-3 text-sm text-gray-800 dark:text-white">{order.customerName}</td>
+                  <td className="px-5 py-3 text-xs text-gray-400 font-mono">{order.id.slice(0, 8)}</td>
+                  <td className="px-5 py-3 text-sm text-gray-600 dark:text-gray-400">
+                    {order.createdAt.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                  </td>
+                  <td className="px-5 py-3 text-sm text-gray-800 dark:text-white">
+                    {(order as any).customerName || 'ลูกค้า'}
+                  </td>
                   <td className="px-5 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-[150px]">
                     <span className="truncate block">
                       {order.items.map(i => `${isEn ? i.nameEn : i.name}×${i.quantity}`).join(', ')}
@@ -222,11 +248,11 @@ export function ReportsPage() {
                   <td className="px-5 py-3 text-sm font-medium text-[#00BDFE]">฿{order.total}</td>
                   <td className="px-5 py-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      { pending: 'bg-yellow-100 text-yellow-700', preparing: 'bg-blue-100 text-[#00BDFE]', ready: 'bg-green-100 text-green-700', delivered: 'bg-gray-100 text-gray-600', cancelled: 'bg-red-100 text-red-600' }[order.status]
+                      { pending: 'bg-yellow-100 text-yellow-700', preparing: 'bg-blue-100 text-[#00BDFE]', ready: 'bg-green-100 text-green-700', delivered: 'bg-gray-100 text-gray-600', cancelled: 'bg-red-100 text-red-600' }[order.status] || 'bg-gray-100 text-gray-600'
                     }`}>
                       {isEn
-                        ? { pending: 'Pending', preparing: 'Preparing', ready: 'Ready', delivered: 'Delivered', cancelled: 'Cancelled' }[order.status]
-                        : { pending: 'รอ', preparing: 'เตรียม', ready: 'พร้อม', delivered: 'จัดส่ง', cancelled: 'ยกเลิก' }[order.status]
+                        ? { pending: 'Pending', preparing: 'Preparing', ready: 'Ready', delivered: 'Delivered', cancelled: 'Cancelled' }[order.status] || order.status
+                        : { pending: 'รอ', preparing: 'เตรียม', ready: 'พร้อม', delivered: 'จัดส่ง', cancelled: 'ยกเลิก' }[order.status] || order.status
                       }
                     </span>
                   </td>

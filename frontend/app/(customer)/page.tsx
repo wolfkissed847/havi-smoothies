@@ -17,7 +17,8 @@ import {
   Quote,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { menuItems, MenuItem } from '../data/mockData';
+import { MenuItem } from '../lib/types';
+import { getMenuItems } from '../lib/db';
 import { OrderOptionsModal } from '../components/customer/OrderOptionsModal';
 
 function MenuCard({ item, onOrder }: { item: MenuItem; onOrder: (item: MenuItem) => void }) {
@@ -84,14 +85,31 @@ export function HomePage() {
   const { t, isEn } = useLanguage();
   const [orderingItem, setOrderingItem] = useState<MenuItem | null>(null);
   const [search, setSearch] = useState('');
+  
+  const [dbMenuItems, setDbMenuItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const featuredItems = menuItems.filter(m => m.isFeatured).slice(0, 4);
-  const newItems = menuItems.filter(m => m.isNew).slice(0, 4);
-  const dailySpecial = menuItems.find(m => m.isFeatured) ?? menuItems[0];
+  useEffect(() => {
+    async function loadMenu() {
+      try {
+        const items = await getMenuItems();
+        setDbMenuItems(items || []);
+      } catch (err) {
+        console.error('Failed to load menu for homepage:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadMenu();
+  }, []);
+
+  const featuredItems = dbMenuItems.filter(m => m.isFeatured).slice(0, 4);
+  const newItems = dbMenuItems.filter(m => m.isNew).slice(0, 4);
+  const dailySpecial = dbMenuItems.find(m => m.isFeatured) || dbMenuItems[0] || null;
 
   const categories = [
-    { key: 'fruit', label: t('fruit'), emoji: '🍊', count: menuItems.filter(m => m.category === 'fruit').length, bg: 'linear-gradient(135deg, #FFF4D6 0%, #FFE4A0 100%)' },
-    { key: 'vegetable', label: t('vegetable'), emoji: '🥕', count: menuItems.filter(m => m.category === 'vegetable').length, bg: 'linear-gradient(135deg, #DFFFD6 0%, #B6F5A4 100%)' },
+    { key: 'fruit', label: t('fruit'), emoji: '🍊', count: dbMenuItems.filter(m => m.category === 'fruit').length, bg: 'linear-gradient(135deg, #FFF4D6 0%, #FFE4A0 100%)' },
+    { key: 'vegetable', label: t('vegetable'), emoji: '🥕', count: dbMenuItems.filter(m => m.category === 'vegetable').length, bg: 'linear-gradient(135deg, #DFFFD6 0%, #B6F5A4 100%)' },
   ];
 
   const benefits = [
@@ -235,6 +253,7 @@ export function HomePage() {
       {/* Daily Special + Promo Countdown */}
       <section className="mx-4 md:mx-6 mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Daily Special */}
+        {dailySpecial && (
         <div
           className="lg:col-span-2 relative overflow-hidden rounded-3xl p-6 md:p-8 flex items-center gap-4 cursor-pointer group"
           style={{ background: 'linear-gradient(135deg, #FFF4D6 0%, #FFD9A0 60%, #FFB7B7 100%)' }}
@@ -273,6 +292,7 @@ export function HomePage() {
           <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/20" />
           <div className="absolute -bottom-12 -left-8 w-36 h-36 rounded-full bg-white/15" />
         </div>
+        )}
 
         {/* Promo Countdown */}
         <div
