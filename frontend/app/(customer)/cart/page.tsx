@@ -43,7 +43,7 @@ export function CartPage() {
     }
     setLoading(true);
     await new Promise(r => setTimeout(r, 1200));
-    addOrder(items, address, notes);
+    await addOrder(items, address, notes);
     clearCart();
     router.push('/order-confirmation');
   };
