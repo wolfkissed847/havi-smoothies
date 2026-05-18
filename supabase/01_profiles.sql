@@ -59,7 +59,7 @@ CREATE TRIGGER trg_profiles_updated_at
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, auth_user_id, username, name)
+  INSERT INTO public.profiles (id, auth_user_id, username, name, phone)
   VALUES (
     NEW.id,
     NEW.id,
@@ -67,12 +67,14 @@ BEGIN
       NEW.raw_user_meta_data->>'username',
       split_part(NEW.email, '@', 1)
     ),
-    COALESCE(NEW.raw_user_meta_data->>'name', NEW.email)
+    COALESCE(NEW.raw_user_meta_data->>'name', NEW.email),
+    NEW.raw_user_meta_data->>'phone'
   )
   ON CONFLICT (id) DO UPDATE
     SET auth_user_id = EXCLUDED.auth_user_id,
         username = EXCLUDED.username,
-        name = EXCLUDED.name;
+        name = EXCLUDED.name,
+        phone = EXCLUDED.phone;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;

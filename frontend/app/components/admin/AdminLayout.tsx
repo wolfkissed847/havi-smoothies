@@ -1,18 +1,36 @@
 "use client";
 
-import React, { useState } from 'react';
-import { redirect } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminTopBar } from './AdminTopBar';
 import { AIChat } from '../shared/AIChat';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, loading } = useAuth();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  useEffect(() => {
+    if (!loading && !isAdmin) {
+      router.push('/login');
+    }
+  }, [isAdmin, loading, router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F8FBFF] dark:bg-[#030d1a] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-[#00BDFE] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-gray-400 text-sm">กำลังตรวจสอบสิทธิ์...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAdmin) {
-    redirect('/login');
+    return null;
   }
 
   return (

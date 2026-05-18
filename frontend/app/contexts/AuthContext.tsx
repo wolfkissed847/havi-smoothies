@@ -116,23 +116,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const demoAccounts: Record<string, { id: string; email: string; username: string; name: string; role: UserRole }> = {
-        admin: {
-          id: '00000000-0000-0000-0000-000000000002',
-          email: 'admin@gmail.com',
-          username: 'admin',
-          name: 'Admin',
-          role: 'admin',
-        },
-        user: {
-          id: '00000000-0000-0000-0000-000000000001',
-          email: 'user@gmail.com',
-          username: 'user',
-          name: 'User',
-          role: 'customer',
-        },
-      };
-
       const attemptLogin = async (candidateEmail: string) => supabase.auth.signInWithPassword({
         email: candidateEmail,
         password,
@@ -162,22 +145,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const demoKey = trimmedEmail.includes('@') ? trimmedEmail.split('@')[0] : trimmedEmail;
-      const demoAccount = demoAccounts[demoKey];
-
-      if (demoAccount && demoAccount.username === password) {
-        setUser({
-          id: demoAccount.id,
-          username: demoAccount.username,
-          email: demoAccount.email,
-          name: demoAccount.name,
-          role: demoAccount.role,
-          phone: undefined,
-          avatar: undefined,
-        });
-        return true;
-      }
-
       return false;
     } catch (err) {
       console.error('Login error:', err);
@@ -187,13 +154,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (name: string, email: string, phone: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // 1. Sign up user
+      // 1. Sign up user with metadata
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             name,
+            phone,
           }
         }
       });
@@ -202,22 +170,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const sessionUser = data?.user;
       if (sessionUser) {
-        // 2. Update user profile details (trigger has already created the row, so we update it)
+        // 2. Fallback: Update user profile details (trigger has already created the row, so we update it)
         const { error: profileError } = await supabase
           .from('profiles')
           .update({ name, phone })
           .eq('auth_user_id', sessionUser.id);
           
         if (profileError) {
-          console.error('Profile update warning:', profileError);
+          console.warn('Profile update fallback warning (usually safe to ignore if trigger saved it):', profileError);
         }
         
         return { success: true };
       }
       return { success: false, error: 'Registration succeeded, but failed to retrieve user session.' };
-    } catch (err: any) {
+    } catch (err) {
       console.error('Register error:', err);
-      return { success: false, error: err.message || 'An unknown error occurred' };
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      return { success: false, error: errorMessage };
     }
   };
 

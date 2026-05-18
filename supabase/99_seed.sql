@@ -18,32 +18,44 @@
 -- รันไฟล์นี้ซ้ำได้ เพื่อ restore 2 base ids กลับมาเสมอ
 INSERT INTO auth.users (
   id,
+  aud,
+  role,
   email,
   encrypted_password,
   email_confirmed_at,
+  raw_app_meta_data,
   raw_user_meta_data,
   created_at,
   updated_at
 ) VALUES
   (
     '00000000-0000-0000-0000-000000000001',
+    'authenticated',
+    'authenticated',
     'user@gmail.com',
     crypt('user', gen_salt('bf')),
     NOW(),
-    '{"name": "Test User"}'::jsonb,
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"name": "User"}'::jsonb,
     NOW(), NOW()
   ),
   (
     '00000000-0000-0000-0000-000000000002',
+    'authenticated',
+    'authenticated',
     'admin@gmail.com',
     crypt('admin', gen_salt('bf')),
     NOW(),
-    '{"name": "Test Admin"}'::jsonb,
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"name": "Admin"}'::jsonb,
     NOW(), NOW()
   )
 ON CONFLICT (id) DO UPDATE
   SET email = EXCLUDED.email,
       encrypted_password = EXCLUDED.encrypted_password,
+      aud = EXCLUDED.aud,
+      role = EXCLUDED.role,
+      raw_app_meta_data = EXCLUDED.raw_app_meta_data,
       updated_at = NOW();
 
 -- ----------------------------

@@ -33,17 +33,27 @@ export function LoginPage() {
   };
 
   const demoLogin = async (type: 'admin' | 'user') => {
+    setError('');
     setLoading(true);
-    if (type === 'admin') {
-      if (await login('admin', 'admin')) {
+    const username = type === 'admin' ? 'admin' : 'user';
+    const pwd = type === 'admin' ? 'admin123' : 'user123';
+
+    // Visually populate the login inputs
+    setEmail(username);
+    setPassword(pwd);
+
+    const success = await login(username, pwd);
+    setLoading(false);
+
+    if (success) {
+      if (type === 'admin') {
         router.push('/admin');
-      }
-    } else {
-      if (await login('user', 'user')) {
+      } else {
         router.push('/');
       }
+    } else {
+      setError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง / Invalid username or password');
     }
-    setLoading(false);
   };
 
   return (
