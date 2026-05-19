@@ -6,6 +6,7 @@ import { Minus, Plus, Trash2, MapPin, MessageSquare, ShoppingCart, ArrowLeft, Ma
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useCart } from '../../contexts/CartContext';
 import { useOrderHistory } from '../../contexts/OrderHistoryContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { MapPickerModal } from '../../components/customer/MapPickerModal';
 
 const TYPE_LABEL: Record<string, { th: string; en: string }> = {
@@ -27,6 +28,7 @@ export function CartPage() {
   const { isEn } = useLanguage();
   const { items, updateQuantity, removeItem, total, clearCart } = useCart();
   const { addOrder } = useOrderHistory();
+  const { user } = useAuth();
   const router = useRouter();
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
@@ -37,15 +39,34 @@ export function CartPage() {
   const grandTotal = total + deliveryFee;
 
   const handleOrder = async () => {
+    if (!user) {
+      alert(isEn ? 'Please log in to place an order.' : 'กรุณาเข้าสู่ระบบก่อนทำการสั่งซื้อ');
+      router.push('/login');
+      return;
+    }
+
     if (!address.trim()) {
       alert(isEn ? 'Please enter your delivery address' : 'กรุณาระบุที่อยู่จัดส่ง');
       return;
     }
     setLoading(true);
     await new Promise(r => setTimeout(r, 1200));
-    await addOrder(items, address, notes);
+    const order = await addOrder(items, address, notes);
+    if (!order) {
+      setLoading(false);
+      alert(isEn ? 'Order failed. Please try again.' : 'สั่งซื้อไม่สำเร็จ กรุณาลองใหม่');
+      return;
+    }
     clearCart();
-    router.push('/order-confirmation');
+    
+    const id = order?.id || '';
+    const number = order?.orderNumber || '';
+    const params = new URLSearchParams();
+    if (id) params.set('id', id);
+    if (number) params.set('number', number);
+    const query = params.toString();
+    
+    router.push(`/order-confirmation${query ? `?${query}` : ''}`);
   };
 
   if (items.length === 0) {

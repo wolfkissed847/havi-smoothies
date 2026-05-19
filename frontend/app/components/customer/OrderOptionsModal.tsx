@@ -215,18 +215,22 @@ export function OrderOptionsModal({ item, onClose }: OrderOptionsModalProps) {
             <span className="text-[#00BDFE] font-semibold">฿{item.price * quantity}</span>
           </div>
           <button
-            onClick={handleConfirm}
-            disabled={added}
+            onClick={item.isAvailable ? handleConfirm : undefined}
+            disabled={added || !item.isAvailable}
             className={`w-full py-3 rounded-2xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${
-              added
-                ? 'bg-green-500 text-white'
-                : 'bg-[#00BDFE] text-white hover:bg-[#00CBFE] active:scale-[0.98]'
+              !item.isAvailable
+                ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
+                : added
+                  ? 'bg-green-500 text-white'
+                  : 'bg-[#00BDFE] text-white hover:bg-[#00CBFE] active:scale-[0.98]'
             }`}
           >
-            <ShoppingCart className="w-4 h-4" />
-            {added
-              ? (isEn ? 'Added! ✓' : 'เพิ่มแล้ว! ✓')
-              : (isEn ? 'Add to Cart' : 'เพิ่มลงตะกร้า')}
+            {item.isAvailable && <ShoppingCart className="w-4 h-4" />}
+            {!item.isAvailable
+              ? (isEn ? 'Out of Stock' : 'หมด')
+              : added
+                ? (isEn ? 'Added! ✓' : 'เพิ่มแล้ว! ✓')
+                : (isEn ? 'Add to Cart' : 'เพิ่มลงตะกร้า')}
           </button>
         </div>
       </div>

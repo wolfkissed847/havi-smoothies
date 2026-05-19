@@ -37,6 +37,11 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const userRef = React.useRef<User | null>(null);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // Helper function to fetch profile from DB
   const fetchProfile = async (uid: string, email: string): Promise<User | null> => {
@@ -99,6 +104,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 2. Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const currentUser = userRef.current;
+      
+      // Skip loading and fetching if session matches already loaded user (e.g. on window focus or token refresh)
+      if (session?.user && currentUser && currentUser.id === session.user.id) {
+        return;
+      }
+      
+      // Skip loading if already logged out and session is empty
+      if (!session?.user && !currentUser) {
+        return;
+      }
+
       setLoading(true);
       if (session?.user) {
         const profile = await fetchProfile(session.user.id, session.user.email || '');

@@ -6,12 +6,14 @@ import {
   MapPin, MessageSquare, ChevronRight,
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { OrderStatus } from '../../lib/types';
 import { getAllOrders, updateOrderStatus } from '../../lib/db';
 
 // Admin Order shape (flattened from CustomerOrder for this page)
 interface AdminOrder {
   id: string;
+  orderNumber?: string;
   customerName: string;
   items: { name: string; nameEn: string; quantity: number; price: number }[];
   total: number;
@@ -55,7 +57,7 @@ function getItemEmoji(name: string): string {
 
 const STATUS_NEXT: Record<OrderStatus, OrderStatus | null> = {
   pending: 'preparing',
-  preparing: 'delivered',
+  preparing: 'ready',
   ready: 'delivered',
   delivered: null,
   cancelled: null,
@@ -110,8 +112,8 @@ const STATUS_CONFIG: Record<OrderStatus, StatusConfig> = {
 
 const NEXT_LABEL: Record<string, { th: string; en: string }> = {
   pending: { th: 'เริ่มทำ', en: 'Start Making' },
-  preparing: { th: 'สำเร็จแล้ว', en: 'Mark Done' },
-  ready: { th: 'จัดส่งแล้ว', en: 'Delivered' },
+  preparing: { th: 'พร้อมส่ง', en: 'Ready to Ship' },
+  ready: { th: 'จัดส่งสำเร็จ', en: 'Mark Delivered' },
 };
 
 type TabKey = OrderStatus | 'all';
@@ -121,6 +123,7 @@ const TABS: Tab[] = [
   { key: 'all', labelTh: 'ทั้งหมด', labelEn: 'All' },
   { key: 'pending', labelTh: 'รอดำเนินการ', labelEn: 'Pending' },
   { key: 'preparing', labelTh: 'กำลังทำ', labelEn: 'Preparing' },
+  { key: 'ready', labelTh: 'พร้อมส่ง', labelEn: 'Ready' },
   { key: 'delivered', labelTh: 'สำเร็จ', labelEn: 'Done' },
   { key: 'cancelled', labelTh: 'ยกเลิก', labelEn: 'Cancelled' },
 ];
@@ -129,11 +132,12 @@ const STAT_CARDS = [
   { key: 'all', labelTh: 'ออเดอร์ทั้งหมด', labelEn: 'Total Orders', bg: 'bg-[#F0FDF4] dark:bg-[#0a2540]', border: 'border-green-100 dark:border-[#0a2540]', textColor: 'text-[#1a3c2e] dark:text-green-300' },
   { key: 'pending', labelTh: 'รอดำเนินการ', labelEn: 'Pending', bg: 'bg-[#FFFBE8] dark:bg-amber-900/10', border: 'border-amber-100 dark:border-amber-900/30', textColor: 'text-amber-600 dark:text-amber-400' },
   { key: 'preparing', labelTh: 'กำลังทำ', labelEn: 'Preparing', bg: 'bg-[#EFF8FF] dark:bg-blue-900/10', border: 'border-blue-100 dark:border-blue-900/30', textColor: 'text-blue-600 dark:text-blue-400' },
-  { key: 'delivered', labelTh: 'สำเร็จวันนี้', labelEn: "Today's Done", bg: 'bg-[#F0FFF4] dark:bg-green-900/10', border: 'border-green-200 dark:border-green-900/30', textColor: 'text-green-700 dark:text-green-400' },
+  { key: 'ready', labelTh: 'พร้อมส่ง', labelEn: 'Ready', bg: 'bg-[#F0FFF4] dark:bg-green-900/10', border: 'border-green-200 dark:border-green-900/30', textColor: 'text-green-700 dark:text-green-400' },
 ] as const;
 
 export function OrdersPage() {
   const { isEn } = useLanguage();
+  const { isAdmin, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
@@ -145,11 +149,13 @@ export function OrdersPage() {
   });
 
   const loadOrders = useCallback(async () => {
+    if (!isAdmin) return; // Wait for admin auth
     setLoading(true);
     try {
       const dbOrders = await getAllOrders();
       const mapped: AdminOrder[] = dbOrders.map(o => ({
         id: o.id,
+        orderNumber: o.orderNumber,
         customerName: (o as any).customerName || 'ลูกค้า',
         items: o.items.map(i => ({ name: i.name, nameEn: i.nameEn, quantity: i.quantity, price: i.price })),
         total: o.total,
@@ -167,9 +173,16 @@ export function OrdersPage() {
       const d = new Date();
       setLastRefresh(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
     }
-  }, []);
+  }, [isAdmin]);
 
-  useEffect(() => { loadOrders(); }, [loadOrders]);
+  useEffect(() => { 
+    if (!authLoading && isAdmin) {
+      loadOrders(); 
+    } else if (!authLoading && !isAdmin) {
+      // If auth finished loading and still not admin, clear loading state
+      setLoading(false);
+    }
+  }, [loadOrders, authLoading, isAdmin]);
 
   const handleRefresh = () => { loadOrders(); };
 
@@ -191,6 +204,7 @@ export function OrdersPage() {
     const matchSearch = !q ||
       o.customerName.includes(search) ||
       o.id.toLowerCase().includes(q) ||
+      (o.orderNumber ? o.orderNumber.toLowerCase().includes(q) : false) ||
       o.items.some(i => i.name.includes(search) || i.nameEn.toLowerCase().includes(q));
     return matchTab && matchSearch;
   });
@@ -206,11 +220,8 @@ export function OrdersPage() {
     all: countAll,
     pending: counts['pending'] ?? 0,
     preparing: counts['preparing'] ?? 0,
-    delivered: counts['delivered'] ?? 0,
+    ready: counts['ready'] ?? 0,
   };
-
-  const DATE_TH = '29 เม.ย. 2569';
-  const DATE_EN = '29 Apr 2026';
 
   return (
     <div className="space-y-5">
@@ -218,7 +229,7 @@ export function OrdersPage() {
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1 min-w-0">
-          <h1 className="text-gray-800 dark:text-white">{isEn ? 'Order Management' : 'จัดการออเดอร์'}</h1>
+          <h1 className="text-gray-800 dark:text-white font-bold text-2xl">{isEn ? 'Order Management' : 'จัดการออเดอร์'}</h1>
           <p className="text-gray-400 text-sm mt-0.5">
             {isEn ? `Last updated: ${lastRefresh}` : `อัพเดทล่าสุด: ${lastRefresh}`}
           </p>
@@ -260,7 +271,7 @@ export function OrdersPage() {
             onClick={() => setActiveTab(card.key as TabKey)}
           >
             <p className="text-gray-400 text-xs mb-2">{isEn ? card.labelEn : card.labelTh}</p>
-            <p className={`${card.textColor} font-semibold`} style={{ fontSize: '2rem', lineHeight: 1 }}>
+            <p className={`${card.textColor} font-bold`} style={{ fontSize: '2rem', lineHeight: 1 }}>
               {statCounts[card.key]}
             </p>
           </div>
@@ -297,7 +308,6 @@ export function OrdersPage() {
         </div>
         {/* Result count */}
         <div className="flex-shrink-0 flex items-center gap-1 text-gray-400 text-sm px-3 pb-1">
-          <Filter className="w-3.5 h-3.5" />
           <span>{filtered.length} {isEn ? 'items' : 'รายการ'}</span>
         </div>
       </div>
@@ -314,11 +324,11 @@ export function OrdersPage() {
           <p className="text-gray-400">{isEn ? 'No orders found' : 'ไม่พบออเดอร์'}</p>
         </div>
       ) : (
-        <div className="bg-white dark:bg-[#060f1e] rounded-2xl border border-gray-100 dark:border-[#0a2540] overflow-hidden">
+        <div className="bg-white dark:bg-[#060f1e] rounded-2xl border border-gray-100 dark:border-[#0a2540] overflow-hidden shadow-sm">
           {/* Table Head */}
-          <div className="hidden md:grid grid-cols-[110px_140px_1fr_90px_80px_130px_44px] px-5 py-3 border-b border-gray-100 dark:border-[#0a2540]">
+          <div className="hidden md:grid grid-cols-[110px_140px_1fr_90px_80px_130px_44px] px-5 py-3.5 border-b border-gray-100 dark:border-[#0a2540] bg-[#FAFCFE] dark:bg-[#050e1b]">
             {['รหัส', 'เวลา / วันที่', 'ลูกค้า + รายการ', 'รวม', 'ค่าส่ง', 'สถานะ', ''].map((h, i) => (
-              <div key={i} className="text-xs text-gray-400 font-medium">{h}</div>
+              <div key={i} className="text-xs text-gray-400 font-semibold uppercase">{h}</div>
             ))}
           </div>
 
@@ -339,21 +349,27 @@ export function OrdersPage() {
                   >
                     {/* Order ID */}
                     <div className="text-sm font-semibold text-gray-700 dark:text-gray-200 md:pr-3">
-                      {order.id}
+                      {order.orderNumber || order.id.slice(0, 8)}
                     </div>
 
-                    {/* Time / Date — hidden on mobile */}
+                    {/* Time / Date */}
                     <div className="hidden md:block">
                       <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{order.time}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{isEn ? DATE_EN : DATE_TH}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {order.createdAt.toLocaleDateString(isEn ? 'en-US' : 'th-TH', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </p>
                     </div>
 
                     {/* Customer + Items */}
                     <div className="flex-1 min-w-0 md:px-3">
-                      <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{order.customerName}</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">{order.customerName}</p>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                         {order.items.map((item, idx) => (
-                          <span key={idx} className="text-xs text-gray-400 flex items-center gap-0.5">
+                          <span key={idx} className="text-xs text-gray-400 flex items-center gap-0.5 font-medium">
                             <span>{getItemEmoji(item.name)}</span>
                             <span>{isEn ? item.nameEn : item.name} ×{item.quantity}</span>
                           </span>
@@ -362,18 +378,18 @@ export function OrdersPage() {
                     </div>
 
                     {/* Total */}
-                    <div className="hidden md:block text-sm font-semibold text-gray-800 dark:text-white">
+                    <div className="hidden md:block text-sm font-bold text-[#00BDFE]">
                       {order.total}฿
                     </div>
 
                     {/* Delivery */}
-                    <div className="hidden md:block text-sm text-gray-500 dark:text-gray-400">
+                    <div className="hidden md:block text-sm text-gray-500 dark:text-gray-400 font-medium">
                       {DELIVERY_FEE}฿
                     </div>
 
                     {/* Status */}
                     <div className="flex-shrink-0 md:flex md:items-center">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${cfg.pill}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${cfg.pill}`}>
                         {cfg.icon}
                         {isEn ? cfg.labelEn : cfg.labelTh}
                       </span>
@@ -394,27 +410,27 @@ export function OrdersPage() {
 
                         {/* Items list */}
                         <div>
-                          <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide">{isEn ? 'Order Items' : 'รายการสินค้า'}</p>
+                          <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide font-semibold">{isEn ? 'Order Items' : 'รายการสินค้า'}</p>
                           <div className="space-y-2">
                             {order.items.map((item, idx) => (
                               <div key={idx} className="flex items-center justify-between">
-                                <span className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                                <span className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 font-medium">
                                   <span className="text-base">{getItemEmoji(item.name)}</span>
                                   {isEn ? item.nameEn : item.name}
-                                  <span className="text-gray-400">×{item.quantity}</span>
+                                  <span className="text-gray-450">×{item.quantity}</span>
                                 </span>
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
                                   {item.price * item.quantity}฿
                                 </span>
                               </div>
                             ))}
                             <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-[#0a2540]">
-                              <span className="text-xs text-gray-400">{isEn ? 'Delivery' : 'ค่าจัดส่ง'}</span>
-                              <span className="text-xs text-gray-500">{DELIVERY_FEE}฿</span>
+                              <span className="text-xs text-gray-450 font-medium">{isEn ? 'Delivery' : 'ค่าจัดส่ง'}</span>
+                              <span className="text-xs text-gray-500 font-medium">{DELIVERY_FEE}฿</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{isEn ? 'Total' : 'รวมทั้งหมด'}</span>
-                              <span className="text-sm font-semibold text-[#00BDFE]">{order.total + DELIVERY_FEE}฿</span>
+                              <span className="text-sm font-semibold text-gray-750 dark:text-gray-200">{isEn ? 'Total' : 'รวมทั้งหมด'}</span>
+                              <span className="text-sm font-bold text-[#00BDFE]">{order.total + DELIVERY_FEE}฿</span>
                             </div>
                           </div>
                         </div>
@@ -422,18 +438,18 @@ export function OrdersPage() {
                         {/* Address + Notes */}
                         <div className="space-y-3">
                           <div>
-                            <p className="text-xs text-gray-400 mb-1.5 uppercase tracking-wide">{isEn ? 'Delivery Address' : 'ที่อยู่จัดส่ง'}</p>
-                            <div className="flex items-start gap-2">
-                              <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                              <p className="text-sm text-gray-600 dark:text-gray-300">{order.address}</p>
+                            <p className="text-xs text-gray-400 mb-1.5 uppercase tracking-wide font-semibold">{isEn ? 'Delivery Address' : 'ที่อยู่จัดส่ง'}</p>
+                            <div className="flex items-start gap-2 bg-white dark:bg-[#060f1e] p-2.5 rounded-xl border border-gray-100 dark:border-[#0a2540]">
+                              <MapPin className="w-4 h-4 text-[#00BDFE] flex-shrink-0 mt-0.5" />
+                              <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">{order.address}</p>
                             </div>
                           </div>
                           {order.notes && (
                             <div>
-                              <p className="text-xs text-gray-400 mb-1.5 uppercase tracking-wide">{isEn ? 'Note' : 'หมายเหตุ'}</p>
-                              <div className="flex items-start gap-2">
-                                <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                                <p className="text-sm text-gray-600 dark:text-gray-300">{order.notes}</p>
+                              <p className="text-xs text-gray-400 mb-1.5 uppercase tracking-wide font-semibold">{isEn ? 'Note' : 'หมายเหตุ'}</p>
+                              <div className="flex items-start gap-2 bg-white dark:bg-[#060f1e] p-2.5 rounded-xl border border-gray-100 dark:border-[#0a2540]">
+                                <MessageSquare className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                                <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">{order.notes}</p>
                               </div>
                             </div>
                           )}
@@ -446,7 +462,7 @@ export function OrdersPage() {
                           {nextStatus && nextLabel && (
                             <button
                               onClick={e => { e.stopPropagation(); handleUpdateStatus(order.id, nextStatus); setExpandedId(null); }}
-                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1a3c2e] text-white text-sm font-medium hover:bg-[#244d3b] transition-colors"
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1a3c2e] hover:bg-[#244d3b] text-white text-sm font-semibold transition-colors shadow-xs"
                             >
                               <ChevronRight className="w-4 h-4" />
                               {isEn ? nextLabel.en : nextLabel.th}
@@ -455,7 +471,7 @@ export function OrdersPage() {
                           {order.status !== 'cancelled' && order.status !== 'delivered' && (
                             <button
                               onClick={e => { e.stopPropagation(); handleCancelOrder(order.id); }}
-                              className="px-5 py-2.5 rounded-xl border border-red-200 dark:border-red-800 text-red-500 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              className="px-5 py-2.5 rounded-xl border border-red-200 dark:border-red-900/30 text-red-500 text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                             >
                               {isEn ? 'Cancel Order' : 'ยกเลิกออเดอร์'}
                             </button>
@@ -473,6 +489,5 @@ export function OrdersPage() {
     </div>
   );
 }
-
 
 export default OrdersPage;

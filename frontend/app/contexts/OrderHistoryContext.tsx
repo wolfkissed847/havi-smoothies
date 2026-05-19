@@ -13,7 +13,7 @@ import {
 
 interface OrderHistoryContextType {
   myOrders: CustomerOrder[];
-  addOrder: (items: OrderItem[], address: string, notes: string) => Promise<string>;
+  addOrder: (items: OrderItem[], address: string, notes: string) => Promise<{ id: string; orderNumber: string } | null>;
   confirmReceipt: (orderId: string) => Promise<void>;
   submitReview: (orderId: string, rating: number, review: string) => Promise<void>;
   cancelOrder: (orderId: string) => Promise<void>;
@@ -22,7 +22,7 @@ interface OrderHistoryContextType {
 
 const OrderHistoryContext = createContext<OrderHistoryContextType>({
   myOrders: [],
-  addOrder: async () => '',
+  addOrder: async () => null,
   confirmReceipt: async () => {},
   submitReview: async () => {},
   cancelOrder: async () => {},
@@ -56,14 +56,17 @@ export function OrderHistoryProvider({ children }: { children: React.ReactNode }
   }, [user]);
 
 
-  const addOrder = async (items: OrderItem[], address: string, notes: string): Promise<string> => {
-    const fallbackNumber = `HS-${Date.now().toString().slice(-6)}`;
+  const addOrder = async (items: OrderItem[], address: string, notes: string): Promise<{ id: string; orderNumber: string } | null> => {
     try {
       const customerName = user?.name || 'Customer';
       const userId = user?.id || null;
 
       // 1. Save to Supabase
-      const newOrderId = await placeOrder(items, address, notes, userId, customerName);
+      const newOrder = await placeOrder(items, address, notes, userId, customerName);
+      if (!newOrder) {
+        console.error('Failed to place order in database.');
+        return null;
+      }
 
       // 2. Map to local state
       const customerItems: CustomerOrderItem[] = items.map(({ menuItem, quantity, options }) => ({
@@ -77,8 +80,9 @@ export function OrderHistoryProvider({ children }: { children: React.ReactNode }
       }));
       const total = items.reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
 
-      const newOrder: CustomerOrder = {
-        id: newOrderId || fallbackNumber,
+      const newOrderForState: CustomerOrder = {
+        id: newOrder.id,
+        orderNumber: newOrder.orderNumber,
         items: customerItems,
         total,
         status: 'pending',
@@ -88,11 +92,11 @@ export function OrderHistoryProvider({ children }: { children: React.ReactNode }
         isReceived: false,
       };
 
-      setMyOrders(prev => [newOrder, ...prev]);
-      return newOrderId || fallbackNumber;
+      setMyOrders(prev => [newOrderForState, ...prev]);
+      return newOrder;
     } catch (err) {
       console.error('Error placing order in context:', err);
-      return fallbackNumber;
+      return null;
     }
   };
 
