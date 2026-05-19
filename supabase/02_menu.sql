@@ -45,9 +45,5 @@ CREATE POLICY "menu: public read available"
 -- Admin อ่าน/เขียนได้ทั้งหมด
 CREATE POLICY "menu: admin full access"
   ON menu_items FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  USING (check_user_is_admin(auth.uid()))
+  WITH CHECK (check_user_is_admin(auth.uid()));

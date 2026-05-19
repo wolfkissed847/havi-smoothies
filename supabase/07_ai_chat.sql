@@ -33,14 +33,10 @@ CREATE POLICY "ai_sessions: insert all"
   WITH CHECK (TRUE);
 
 -- Admin อ่านได้ทั้งหมด
-CREATE POLICY "ai_sessions: admin read all"
-  ON ai_chat_sessions FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+CREATE POLICY "chat_sessions: admin full access"
+  ON ai_chat_sessions FOR ALL
+  USING (check_user_is_admin(auth.uid()))
+  WITH CHECK (check_user_is_admin(auth.uid()));
 
 
 -- ----------------------------
@@ -74,11 +70,7 @@ CREATE POLICY "ai_messages: access via session"
   );
 
 -- Admin อ่านได้ทั้งหมด
-CREATE POLICY "ai_messages: admin read all"
-  ON ai_chat_messages FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+CREATE POLICY "chat_messages: admin full access"
+  ON ai_chat_messages FOR ALL
+  USING (check_user_is_admin(auth.uid()))
+  WITH CHECK (check_user_is_admin(auth.uid()));

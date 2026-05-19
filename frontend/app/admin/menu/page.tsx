@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, X, Eye, EyeOff, ChevronDown } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem } from '../../lib/db';
+import { getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, getMenuItemSales } from '../../lib/db';
 import { MenuItem, MenuCategory } from '../../lib/types';
 
 type Category = MenuCategory;
@@ -33,12 +33,6 @@ const EMOJI_LIST = [
   '🫑','🧅','🧄','🍒','🫐',
 ];
 
-// Mock sold counts per item id
-const SOLD_MOCK: Record<number, number> = {
-  1: 142, 2: 98, 3: 76, 4: 54, 5: 67, 6: 113,
-  7: 39, 8: 55, 9: 28, 10: 87, 11: 44, 12: 31,
-  13: 43, 14: 29, 15: 18, 16: 22, 17: 15, 18: 12,
-};
 
 function getBadge(item: MenuItem): BadgeType {
   if (item.isNew) return 'new';
@@ -121,7 +115,8 @@ function BadgeDropdown({ value, onChange, isEn }: {
 export function MenuManagementPage() {
   const { isEn } = useLanguage();
   const [items, setItems] = useState<MenuItem[]>([]);
-  const [soldCounts, setSoldCounts] = useState<Record<string | number, number>>(SOLD_MOCK);
+  const [soldCounts, setSoldCounts] = useState<Record<string | number, number>>({});
+  const [totalSold, setTotalSold] = useState(0);
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState<Category | 'all'>('all');
   const [showModal, setShowModal] = useState(false);
@@ -133,15 +128,22 @@ export function MenuManagementPage() {
   useEffect(() => {
     async function loadMenu() {
       try {
-        const dbItems = await getMenuItems();
+        const [dbItems, sales] = await Promise.all([
+          getMenuItems(),
+          getMenuItemSales(),
+        ]);
         if (dbItems && dbItems.length > 0) {
           setItems(dbItems);
         } else {
           setItems([]);
         }
+        setSoldCounts(sales.soldCounts);
+        setTotalSold(sales.totalCups);
       } catch (err) {
         console.error('Failed to load menu items:', err);
         setItems([]);
+        setSoldCounts({});
+        setTotalSold(0);
       }
     }
     loadMenu();
@@ -157,7 +159,6 @@ export function MenuManagementPage() {
 
   const availableCount = items.filter(i => i.isAvailable).length;
   const unavailableCount = items.filter(i => !i.isAvailable).length;
-  const totalSold = Object.values(soldCounts).reduce((a, b) => a + b, 0);
 
   const catTabItems = [
     { key: 'all' as const, labelTh: 'ทั้งหมด', labelEn: 'All', count: items.length },

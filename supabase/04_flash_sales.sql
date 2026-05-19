@@ -29,12 +29,8 @@ CREATE POLICY "flash_sales: public read active"
 
 CREATE POLICY "flash_sales: admin full access"
   ON flash_sales FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  USING (check_user_is_admin(auth.uid()))
+  WITH CHECK (check_user_is_admin(auth.uid()));
 
 
 -- ----------------------------
@@ -61,9 +57,5 @@ CREATE POLICY "flash_sale_items: public read"
 
 CREATE POLICY "flash_sale_items: admin full access"
   ON flash_sale_items FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  USING (check_user_is_admin(auth.uid()))
+  WITH CHECK (check_user_is_admin(auth.uid()));

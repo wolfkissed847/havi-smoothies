@@ -37,9 +37,5 @@ CREATE POLICY "store_settings: public read"
 -- Admin แก้ไขได้
 CREATE POLICY "store_settings: admin update"
   ON store_settings FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  USING (check_user_is_admin(auth.uid()))
+  WITH CHECK (check_user_is_admin(auth.uid()));

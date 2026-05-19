@@ -93,7 +93,7 @@ RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM profiles
-    WHERE id = user_id AND role = 'admin'
+    WHERE (id = user_id OR auth_user_id = user_id) AND role = 'admin'
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

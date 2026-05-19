@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MenuItem, ItemOptions } from '../lib/types';
 
 export interface OrderItem {
@@ -31,6 +31,28 @@ const CartContext = createContext<CartContextType>({
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load initial cart from localStorage
+  useEffect(() => {
+    try {
+      const storedCart = localStorage.getItem('havi-cart');
+      if (storedCart) {
+        setItems(JSON.parse(storedCart));
+      }
+    } catch (e) {
+      console.error('Failed to load cart from local storage:', e);
+    } finally {
+      setIsLoaded(true);
+    }
+  }, []);
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('havi-cart', JSON.stringify(items));
+    }
+  }, [items, isLoaded]);
 
   const addItem = (menuItem: MenuItem, quantity: number, options: ItemOptions) => {
     const cartId = `${menuItem.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;

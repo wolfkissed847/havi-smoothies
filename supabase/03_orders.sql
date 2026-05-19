@@ -5,12 +5,25 @@
 --         จัดการออเดอร์, แดชบอร์ดแอดมิน, รายงาน
 -- ============================================================
 
+-- Short order number generator (GF-###)
+CREATE SEQUENCE IF NOT EXISTS order_number_seq START WITH 100;
+
+CREATE OR REPLACE FUNCTION generate_order_number()
+RETURNS VARCHAR AS $$
+DECLARE
+  next_val BIGINT;
+BEGIN
+  next_val := nextval('order_number_seq');
+  RETURN 'GF-' || lpad(next_val::text, 3, '0');
+END;
+$$ LANGUAGE plpgsql;
+
 -- ----------------------------
 -- orders
 -- ----------------------------
 CREATE TABLE orders (
   id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_number      VARCHAR(30)   NOT NULL UNIQUE,
+  order_number      VARCHAR(30)   NOT NULL UNIQUE DEFAULT generate_order_number(),
   user_id           UUID          REFERENCES profiles (id) ON DELETE SET NULL,
   customer_name     VARCHAR(100)  NOT NULL,
   status            order_status  NOT NULL DEFAULT 'pending',
@@ -41,7 +54,7 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "orders: read own"
   ON orders FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR user_id IS NULL);
 
 CREATE POLICY "orders: insert own"
   ON orders FOR INSERT
@@ -54,12 +67,8 @@ CREATE POLICY "orders: update own received"
 
 CREATE POLICY "orders: admin full access"
   ON orders FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  USING (check_user_is_admin(auth.uid()))
+  WITH CHECK (check_user_is_admin(auth.uid()));
 
 
 -- ----------------------------
@@ -94,7 +103,7 @@ CREATE POLICY "order_items: read via order"
     EXISTS (
       SELECT 1 FROM orders
       WHERE orders.id = order_items.order_id
-        AND orders.user_id = auth.uid()
+        AND (orders.user_id = auth.uid() OR orders.user_id IS NULL)
     )
   );
 
@@ -110,12 +119,8 @@ CREATE POLICY "order_items: insert via order"
 
 CREATE POLICY "order_items: admin full access"
   ON order_items FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  USING (check_user_is_admin(auth.uid()))
+  WITH CHECK (check_user_is_admin(auth.uid()));
 
 
 -- ----------------------------
@@ -147,9 +152,5 @@ CREATE POLICY "reviews: insert own"
 
 CREATE POLICY "reviews: admin full access"
   ON order_reviews FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  USING (check_user_is_admin(auth.uid()))
+  WITH CHECK (check_user_is_admin(auth.uid()));

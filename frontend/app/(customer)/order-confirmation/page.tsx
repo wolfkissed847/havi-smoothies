@@ -1,13 +1,17 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { CheckCircle, Clock, Home, Package } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
-export function OrderConfirmationPage() {
+function OrderConfirmationContent() {
   const { t, isEn } = useLanguage();
-  const [orderNum] = useState(() => `ORD-${String(Math.floor(Math.random() * 9000) + 1000)}`);
+  const searchParams = useSearchParams();
+  const rawId = searchParams.get('id') || '';
+  const rawNumber = searchParams.get('number') || '';
+  const [orderNum] = useState(() => rawNumber || rawId);
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -143,15 +147,25 @@ export function OrderConfirmationPage() {
             <Home className="w-4 h-4" />
             {t('backToHome')}
           </Link>
-          <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-[#00BDFE]/30 text-[#00BDFE] text-sm hover:bg-[#D8F2FF] dark:hover:bg-[#00BDFE]/10 transition-colors">
+          <Link href="/my-orders"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-[#00BDFE]/30 text-[#00BDFE] text-sm hover:bg-[#D8F2FF] dark:hover:bg-[#00BDFE]/10 transition-colors"
+          >
             <Package className="w-4 h-4" />
             {t('trackOrder')}
-          </button>
+          </Link>
         </motion.div>
       </div>
     </div>
   );
 }
 
+
+export function OrderConfirmationPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F0FBFF] flex items-center justify-center">Loading...</div>}>
+      <OrderConfirmationContent />
+    </Suspense>
+  );
+}
 
 export default OrderConfirmationPage;

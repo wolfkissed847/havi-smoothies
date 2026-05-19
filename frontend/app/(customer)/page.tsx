@@ -24,11 +24,13 @@ import { OrderOptionsModal } from '../components/customer/OrderOptionsModal';
 function MenuCard({ item, onOrder }: { item: MenuItem; onOrder: (item: MenuItem) => void }) {
   const { isEn } = useLanguage();
   return (
-    <div className="group bg-white dark:bg-[#060f1e] rounded-2xl border border-[#E8F5FF] dark:border-[#0a2540] overflow-hidden hover:border-[#84E4F7] dark:hover:border-[#00BDFE]/40 transition-all hover:shadow-lg hover:-translate-y-1">
+    <div className={`group bg-white dark:bg-[#060f1e] rounded-2xl border transition-all overflow-hidden hover:shadow-lg hover:-translate-y-1 ${
+      !item.isAvailable ? 'opacity-60' : 'border-[#E8F5FF] dark:border-[#0a2540] hover:border-[#84E4F7] dark:hover:border-[#00BDFE]/40'
+    }`}>
       <div
         className="relative flex items-center justify-center h-36 overflow-hidden cursor-pointer"
         style={{ background: item.bgColor }}
-        onClick={() => onOrder(item)}
+        onClick={() => item.isAvailable && onOrder(item)}
       >
         <span
           className="select-none group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300"
@@ -36,12 +38,17 @@ function MenuCard({ item, onOrder }: { item: MenuItem; onOrder: (item: MenuItem)
         >
           {item.emoji}
         </span>
-        {item.isNew && (
-          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-[#00BDFE] text-white text-xs font-medium shadow-sm">ใหม่</span>
-        )}
-        {item.isFeatured && !item.isNew && (
-          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-amber-400 text-white text-xs font-medium shadow-sm">⭐ ขายดี</span>
-        )}
+        <div className="absolute top-2 left-2 flex gap-1">
+          {item.isNew && (
+            <span className="px-2 py-0.5 rounded-full bg-[#00BDFE] text-white text-xs font-medium shadow-sm">ใหม่</span>
+          )}
+          {item.isFeatured && !item.isNew && (
+            <span className="px-2 py-0.5 rounded-full bg-amber-400 text-white text-xs font-medium shadow-sm">⭐ ขายดี</span>
+          )}
+          {!item.isAvailable && (
+            <span className="px-2 py-0.5 rounded-full bg-gray-500 text-white text-xs font-medium shadow-sm">หมด</span>
+          )}
+        </div>
         <button
           className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
           onClick={(e) => e.stopPropagation()}
@@ -56,12 +63,16 @@ function MenuCard({ item, onOrder }: { item: MenuItem; onOrder: (item: MenuItem)
         </p>
         <div className="flex items-center justify-between mt-3">
           <span className="text-[#00BDFE] font-semibold text-sm">฿{item.price}</span>
-          <button
-            onClick={() => onOrder(item)}
-            className="px-3 py-1.5 rounded-xl bg-[#00BDFE] text-white text-xs font-medium hover:bg-[#00CBFE] transition-colors active:scale-95"
-          >
-            สั่งเลย
-          </button>
+          {item.isAvailable ? (
+            <button
+              onClick={() => onOrder(item)}
+              className="px-3 py-1.5 rounded-xl bg-[#00BDFE] text-white text-xs font-medium hover:bg-[#00CBFE] transition-colors active:scale-95"
+            >
+              สั่งเลย
+            </button>
+          ) : (
+            <span className="px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-400 text-xs font-medium">หมด</span>
+          )}
         </div>
       </div>
     </div>
@@ -105,7 +116,7 @@ export function HomePage() {
 
   const featuredItems = dbMenuItems.filter(m => m.isFeatured).slice(0, 4);
   const newItems = dbMenuItems.filter(m => m.isNew).slice(0, 4);
-  const dailySpecial = dbMenuItems.find(m => m.isFeatured) || dbMenuItems[0] || null;
+  const dailySpecial = dbMenuItems.filter(m => m.isAvailable).find(m => m.isFeatured) || dbMenuItems.find(m => m.isAvailable) || null;
 
   const categories = [
     { key: 'fruit', label: t('fruit'), emoji: '🍊', count: dbMenuItems.filter(m => m.category === 'fruit').length, bg: 'linear-gradient(135deg, #FFF4D6 0%, #FFE4A0 100%)' },

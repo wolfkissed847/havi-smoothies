@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { ShoppingCart, Sun, Moon, Globe, User, LogOut, ChevronDown, ClipboardList } from 'lucide-react';
@@ -19,6 +19,11 @@ export function CustomerNavbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const actionableOrders = myOrders.filter(
     o => (o.status === 'ready' && !o.isReceived) || (o.status === 'delivered' && o.isReceived && !o.rating)
@@ -88,7 +93,7 @@ export function CustomerNavbar() {
               className="flex w-9 h-9 rounded-lg items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-[#D8F2FF] dark:hover:bg-[#0a2540] transition-colors"
               aria-label="Toggle theme"
             >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {mounted ? (isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />) : <div className="w-4 h-4" />}
             </button>
 
             {/* Cart */}

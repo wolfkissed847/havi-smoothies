@@ -36,9 +36,5 @@ CREATE POLICY "notifications: update own"
 -- Admin จัดการได้ทั้งหมด
 CREATE POLICY "notifications: admin full access"
   ON notifications FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  USING (check_user_is_admin(auth.uid()))
+  WITH CHECK (check_user_is_admin(auth.uid()));

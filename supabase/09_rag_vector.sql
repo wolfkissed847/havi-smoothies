@@ -30,12 +30,8 @@ CREATE POLICY "knowledge: public read all"
 -- เฉพาะ Admin เท่านั้นที่สามารถ เพิ่ม/แก้ไข/ลบ ข้อมูลคลังความรู้เวกเตอร์ได้
 CREATE POLICY "knowledge: admin full access"
   ON havi_knowledge_embeddings FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  USING (check_user_is_admin(auth.uid()))
+  WITH CHECK (check_user_is_admin(auth.uid()));
 
 -- 5. สร้างฟังก์ชันสำหรับการสืบค้นเวกเตอร์ (Remote Procedure Call - RPC)
 -- ฟังก์ชันนี้จะรับเวกเตอร์คำถามของลูกค้าเข้ามา แล้วคำนวณหาข้อความที่มีความคล้ายคลึงมากที่สุด

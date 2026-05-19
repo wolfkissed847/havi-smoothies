@@ -234,7 +234,7 @@ export function AIChat() {
   const stagedTotal = stagedItems.reduce((s, si) => s + si.menuItem.price * si.quantity, 0);
 
   return (
-    <div className="fixed z-50 bottom-24 right-4 md:bottom-6 md:right-6">
+    <div className="fixed z-50 bottom-24 right-4 md:bottom-6 md:right-6 flex flex-col items-end">
       {/* ── Chat Popup ── */}
       {isOpen && (
         <div className="mb-3 w-[340px] sm:w-[380px] rounded-2xl overflow-hidden shadow-2xl border border-[#D8F2FF] dark:border-[#1e3a5f] bg-white dark:bg-[#0b1a2e] flex flex-col"

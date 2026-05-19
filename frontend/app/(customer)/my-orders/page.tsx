@@ -101,7 +101,7 @@ function OrderCard({ order, onConfirmReceipt, onRate, onCancel, isEn }: {
   const cfg = STATUS_CONFIG[order.status];
   const isActive = ['pending', 'preparing', 'ready'].includes(order.status);
   const showConfirm = order.status === 'ready' && !order.isReceived;
-  const showRate = order.status === 'delivered' && order.isReceived && !order.rating;
+  const showRate = order.status === 'delivered' && !order.rating;
   const showCancelBtn = order.status === 'pending';
   const displayItems = expanded ? order.items : order.items.slice(0, 2);
   const hasMore = order.items.length > 2;
@@ -148,7 +148,7 @@ function OrderCard({ order, onConfirmReceipt, onRate, onCancel, isEn }: {
         <div className="flex items-start justify-between mb-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-semibold text-gray-800 dark:text-white">{order.id}</span>
+              <span className="text-sm font-semibold text-gray-800 dark:text-white">{order.orderNumber || order.id}</span>
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${cfg.bg} ${cfg.text} ${cfg.border}`}>
                 {cfg.icon}
                 {isEn ? cfg.labelEn : cfg.labelTh}
@@ -407,7 +407,7 @@ export function MyOrdersPage() {
       {/* Alert: orders needing action */}
       {(() => {
         const readyCount = myOrders.filter(o => o.status === 'ready' && !o.isReceived).length;
-        const rateCount = myOrders.filter(o => o.status === 'delivered' && o.isReceived && !o.rating).length;
+        const rateCount = myOrders.filter(o => o.status === 'delivered' && !o.rating).length;
         if (readyCount > 0) return (
           <motion.div
             initial={{ opacity: 0, y: -8 }}

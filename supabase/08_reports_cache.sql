@@ -30,11 +30,7 @@ CREATE INDEX idx_report_period ON sales_reports_cache (period);
 ALTER TABLE sales_reports_cache ENABLE ROW LEVEL SECURITY;
 
 -- Admin อ่าน/เขียนได้เท่านั้น
-CREATE POLICY "reports_cache: admin full access"
+CREATE POLICY "sales_reports: admin full access"
   ON sales_reports_cache FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  USING (check_user_is_admin(auth.uid()))
+  WITH CHECK (check_user_is_admin(auth.uid()));
