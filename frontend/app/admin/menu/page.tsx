@@ -1,6 +1,25 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, X, Eye, EyeOff, ChevronDown } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Eye, EyeOff, ChevronDown, Sparkles, Copy, Check } from 'lucide-react';
+
+const InstagramIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+  </svg>
+);
 import { useLanguage } from '../../contexts/LanguageContext';
 import { getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, getMenuItemSales } from '../../lib/db';
 import { MenuItem, MenuCategory } from '../../lib/types';
@@ -123,6 +142,57 @@ export function MenuManagementPage() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [form, setForm] = useState<FormData>(DEFAULT_FORM);
   const [deleteConfirm, setDeleteConfirm] = useState<number | string | null>(null);
+
+  // Instagram Caption Generator States
+  const [showCaptionModal, setShowCaptionModal] = useState(false);
+  const [captionItem, setCaptionItem] = useState<MenuItem | null>(null);
+  const [captions, setCaptions] = useState<{ cute: string; minimal: string; genz: string } | null>(null);
+  const [captionsLoading, setCaptionsLoading] = useState(false);
+  const [activeCaptionTab, setActiveCaptionTab] = useState<'cute' | 'minimal' | 'genz'>('cute');
+  const [copiedTab, setCopiedTab] = useState<'cute' | 'minimal' | 'genz' | null>(null);
+
+  const handleOpenCaption = async (item: MenuItem) => {
+    setCaptionItem(item);
+    setCaptions(null);
+    setCaptionsLoading(true);
+    setShowCaptionModal(true);
+    setActiveCaptionTab('cute');
+    setCopiedTab(null);
+
+    try {
+      const res = await fetch('/api/captions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: item.name, price: item.price }),
+      });
+      const data = await res.json();
+      if (res.ok && data.cute) {
+        setCaptions(data);
+      } else {
+        console.error('Failed to generate captions:', data);
+        setCaptions({
+          cute: `เติมความสดชื่นด้วยสมูทตี้วิตามินเต็มแก้วกับเมนู ${item.name} 🍓🍊🥬 แก้วโปรดของคนรักสุขภาพ ดื่มง่าย ดีท็อกซ์ฟินๆ ในราคาเพียง ฿${item.price} เท่านั้นนะค้าบ! ✨`,
+          minimal: `${item.name} | ฿${item.price}. 100% organic fruit & veggie goodness. No sugar added.`,
+          genz: `${item.name} ตัวมารดาแห่งวงการดีท็อกซ์ผิวฉ่ำวาว อร่อยฟินวิตามินพุ่งแบบตะโกน ในราคา ฿${item.price} ดีต่อใจเว่อร์ รีบมาตำด่วน! 💅🥬🔥`
+        });
+      }
+    } catch (err) {
+      console.error('Error generating captions:', err);
+      setCaptions({
+        cute: `เติมความสดชื่นด้วยสมูทตี้วิตามินเต็มแก้วกับเมนู ${item.name} 🍓🍊🥬 แก้วโปรดของคนรักสุขภาพ ดื่มง่าย ดีท็อกซ์ฟินๆ ในราคาเพียง ฿${item.price} เท่านั้นนะค้าบ! ✨`,
+        minimal: `${item.name} | ฿${item.price}. 100% organic fruit & veggie goodness. No sugar added.`,
+        genz: `${item.name} ตัวมารดาแห่งวงการดีท็อกซ์ผิวฉ่ำวาว อร่อยฟินวิตามินพุ่งแบบตะโกน ในราคา ฿${item.price} ดีต่อใจเว่อร์ รีบมาตำด่วน! 💅🥬🔥`
+      });
+    } finally {
+      setCaptionsLoading(false);
+    }
+  };
+
+  const copyToClipboard = (text: string, tab: 'cute' | 'minimal' | 'genz') => {
+    navigator.clipboard.writeText(text);
+    setCopiedTab(tab);
+    setTimeout(() => setCopiedTab(null), 2000);
+  };
 
   // Fetch menu items from Supabase on mount
   useEffect(() => {
@@ -414,6 +484,13 @@ export function MenuManagementPage() {
                       }
                     </button>
                     <button
+                      onClick={() => handleOpenCaption(item)}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/10 transition-colors"
+                      title={isEn ? "Generate IG Caption" : "สร้างแคปชั่น IG"}
+                    >
+                      <InstagramIcon className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => openEdit(item)}
                       className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-[#00BDFE] hover:bg-[#E8F5FF] dark:hover:bg-[#00BDFE]/15 transition-colors"
                     >
@@ -620,6 +697,139 @@ export function MenuManagementPage() {
                 {isEn ? 'Delete' : 'ลบเมนู'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ── Instagram Caption Generator Modal ── */}
+      {showCaptionModal && captionItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-md" onClick={() => setShowCaptionModal(false)} />
+          <div className="relative bg-white dark:bg-[#060f1e] rounded-3xl border border-gray-100 dark:border-[#0a2540] overflow-hidden w-full max-w-lg shadow-2xl transition-all">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-[#0a2540]">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-pink-100 dark:bg-pink-950/30 flex items-center justify-center text-pink-500">
+                  <InstagramIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-gray-800 dark:text-white font-semibold text-lg">
+                    {isEn ? 'IG Caption Generator' : 'เขียนแคปชั่น IG ด้วย AI'}
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    {isEn ? 'Generated for:' : 'สำหรับเมนู:'} {captionItem.emoji} {isEn ? captionItem.nameEn : captionItem.name}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowCaptionModal(false)}
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-[#0a2540] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              {captionsLoading ? (
+                /* Sleek Glowing Spinner/Loading State */
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <div className="relative w-16 h-16 flex items-center justify-center">
+                    <div className="absolute inset-0 rounded-full border-4 border-pink-100 dark:border-pink-900/20" />
+                    <div className="absolute inset-0 rounded-full border-4 border-pink-500 border-t-transparent animate-spin" />
+                    <Sparkles className="w-6 h-6 text-pink-500 animate-pulse" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      {isEn ? 'AI is drafting social media gold...' : 'Havi AI กำลังแต่งแคปชั่นสุดปังให้คุณ...'}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {isEn ? 'Crafting 3 unique creative styles' : 'กำลังออกแบบเขียน 3 สไตล์สุดโดนใจ'}
+                    </p>
+                  </div>
+                </div>
+              ) : captions ? (
+                <div className="space-y-5">
+                  {/* Style Tabs */}
+                  <div className="flex gap-1.5 p-1 rounded-2xl bg-gray-50 dark:bg-[#030d1a] border border-gray-100 dark:border-[#0a2540]">
+                    {(['cute', 'minimal', 'genz'] as const).map((tab) => {
+                      const labels = {
+                        cute: isEn ? 'Cute & Friendly' : '🌸 น่ารักๆ',
+                        minimal: isEn ? 'Minimal & Elegant' : '✨ มินิมัล',
+                        genz: isEn ? 'Gen-Z Slang' : '🔥 เจน-แซด',
+                      };
+                      return (
+                        <button
+                          key={tab}
+                          onClick={() => setActiveCaptionTab(tab)}
+                          className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                            activeCaptionTab === tab
+                              ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20'
+                              : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+                          }`}
+                        >
+                          {labels[tab]}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Caption Content Box */}
+                  <div className="relative">
+                    <div className="w-full min-h-[120px] p-5 rounded-2xl border border-gray-100 dark:border-[#0a2540] bg-gray-50/50 dark:bg-[#030d1a]/50 text-gray-700 dark:text-gray-200 text-sm leading-relaxed whitespace-pre-wrap select-all font-medium">
+                      {captions[activeCaptionTab]}
+                    </div>
+                  </div>
+
+                  {/* Action Bar */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => copyToClipboard(captions[activeCaptionTab], activeCaptionTab)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold transition-all shadow-md ${
+                        copiedTab === activeCaptionTab
+                          ? 'bg-green-500 text-white shadow-green-500/10'
+                          : 'bg-gray-800 hover:bg-gray-900 text-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 shadow-gray-800/10'
+                      }`}
+                    >
+                      {copiedTab === activeCaptionTab ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          {isEn ? 'Copied to Clipboard!' : 'คัดลอกลงคลิปบอร์ดแล้ว!'}
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          {isEn ? 'Copy Caption' : 'คัดลอกแคปชั่น'}
+                        </>
+                      )}
+                    </button>
+                    
+                    <button
+                      onClick={() => handleOpenCaption(captionItem)}
+                      className="px-4 py-3.5 rounded-xl border border-gray-200 dark:border-[#0a2540] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#0a2540] text-sm font-medium transition-colors"
+                      title={isEn ? 'Regenerate' : 'เขียนใหม่'}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-red-500 text-sm font-medium">
+                  {isEn ? 'Failed to generate captions. Please try again.' : 'เกิดข้อผิดพลาดในการเจนแคปชั่น กรุณาลองใหม่อีกครั้ง'}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-[#0a2540] flex justify-end bg-gray-50 dark:bg-[#030d1a]/50">
+              <button
+                onClick={() => setShowCaptionModal(false)}
+                className="px-5 py-2.5 rounded-xl bg-gray-200 hover:bg-gray-300 dark:bg-[#0a2540] dark:hover:bg-[#123154] text-gray-700 dark:text-gray-300 text-xs font-semibold transition-colors"
+              >
+                {isEn ? 'Close' : 'ปิดหน้าต่าง'}
+              </button>
+            </div>
+
           </div>
         </div>
       )}

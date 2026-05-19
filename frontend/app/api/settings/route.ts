@@ -7,32 +7,32 @@ export async function POST(request: Request) {
     const data = await request.json();
     const { storeInfo, payment, notifications } = data;
 
-    // Create a beautifully formatted markdown file for the RAG Bot
-    const markdownContent = `
-# Store Knowledge Base (RAG Data)
+    // Read the existing KB file
+    const kbPath = path.join(process.cwd(), '..', 'knowledge', 'Havi-Smoothies_kb.txt');
+    let kbContent = '';
+    try {
+      kbContent = fs.readFileSync(kbPath, 'utf-8');
+    } catch (e) {
+      console.warn('KB file not found, creating a new one.');
+    }
 
-## Store Information
-- **Store Name (EN)**: ${storeInfo.name}
-- **Store Name (TH)**: ${storeInfo.nameTh}
-- **Address**: ${storeInfo.address}
-- **Phone Number**: ${storeInfo.phone}
-- **Opening Hours**: ${storeInfo.openTime} - ${storeInfo.closeTime}
+    // Format the new store info
+    const newStoreInfo = `=== ข้อมูลร้าน ===
+เวลาเปิด: ${storeInfo.openTime}-${storeInfo.closeTime} น. ทุกวัน
+ที่ตั้ง: ${storeInfo.address}
+ติดต่อ: ${storeInfo.phone}
+Line OA: ${payment.lineOA}
+รับแจ้งเตือนออเดอร์: ${notifications.orderNotif ? 'เปิด' : 'ปิด'}`;
 
-## Payment Methods
-- **Line OA**: ${payment.lineOA}
-- **PromptPay**: ${payment.promptpay}
+    // Replace the existing section or append it
+    const sectionRegex = /=== ข้อมูลร้าน ===[\s\S]*?(?=\n===|$)/;
+    if (sectionRegex.test(kbContent)) {
+      kbContent = kbContent.replace(sectionRegex, newStoreInfo);
+    } else {
+      kbContent += '\n\n' + newStoreInfo;
+    }
 
-## Notification Preferences
-- **Order Notifications**: ${notifications.orderNotif ? 'Enabled' : 'Disabled'}
-- **Email Notifications**: ${notifications.emailNotif ? 'Enabled' : 'Disabled'}
-- **Sound Alerts**: ${notifications.soundAlert ? 'Enabled' : 'Disabled'}
-
-*This file is automatically updated via the Admin Settings page.*
-`;
-
-    // Save to the public folder so it's easily accessible or can be read by a local ingestion script
-    const filePath = path.join(process.cwd(), 'public', 'store_knowledge.md');
-    fs.writeFileSync(filePath, markdownContent, 'utf-8');
+    fs.writeFileSync(kbPath, kbContent.trim() + '\n', 'utf-8');
 
     return NextResponse.json({ success: true, message: 'Settings saved to file' });
   } catch (error) {
