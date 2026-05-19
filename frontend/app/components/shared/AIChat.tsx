@@ -161,20 +161,46 @@ export function AIChat() {
     ]);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
-    setMessages(prev => [
-      ...prev,
-      { id: Date.now().toString(), text: input, isBot: false, time: getNow() },
-    ]);
+    const userMsg = { id: Date.now().toString(), text: input, isBot: false, time: getNow() };
+    setMessages(prev => [...prev, userMsg]);
+    
     const captured = input;
     setInput('');
     setIsTyping(true);
-    setTimeout(() => {
-      const res = getResponse(captured);
-      pushBotMessage(res.text, res.foundItems);
-      setIsTyping(false);
-    }, 700);
+
+    const foundItems = findMenuItems(captured, availableMenuItems);
+
+    if (foundItems.length > 0) {
+      // 1. Interactive Menu Chip Flow (Immediate response)
+      setTimeout(() => {
+        const res = getResponse(captured);
+        pushBotMessage(res.text, res.foundItems);
+        setIsTyping(false);
+      }, 600);
+    } else {
+      // 2. RAG + Gemini AI Chat Flow
+      try {
+        const chatHistory = [...messages, userMsg];
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: chatHistory }),
+        });
+        const data = await res.json();
+        if (data.text) {
+          pushBotMessage(data.text);
+        } else {
+          pushBotMessage(isTh ? 'ขออภัยค่ะ ระบบแชทขัดข้องชั่วคราว 😥' : 'Sorry, the chat system is temporarily down 😥');
+        }
+      } catch (err) {
+        console.error('Failed to get response from Gemini:', err);
+        pushBotMessage(isTh ? 'ขออภัยค่ะ ระบบแชทขัดข้องชั่วคราว 😥' : 'Sorry, the chat system is temporarily down 😥');
+      } finally {
+        setIsTyping(false);
+      }
+    }
   };
 
   const handleKey = (e: React.KeyboardEvent) => {
